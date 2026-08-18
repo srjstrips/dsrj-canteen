@@ -1,0 +1,436 @@
+// Divya SRJ Canteen — Inventory & Billing System
+// Database schema. See docs/ARCHITECTURE.md for the design rationale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  STORE
+  CANTEEN
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CREDIT
+}
+
+enum StoreLedgerTxnType {
+  OPENING
+  INWARD
+  ISSUE
+  ADJUSTMENT
+}
+
+enum CanteenLedgerTxnType {
+  RECEIVED
+  SALE
+  CONSUMPTION
+  WASTAGE
+  ADJUSTMENT
+}
+
+enum WastageReason {
+  SPOILAGE
+  EXPIRED
+  PREPARATION_WASTE
+  DAMAGED
+  EXCESS_PREPARATION
+  OTHER
+}
+
+enum StockArea {
+  STORE
+  CANTEEN
+}
+
+enum SaleStatus {
+  COMPLETED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  stockInwards        StockInward[]       @relation("StockInwardCreatedBy")
+  stockIssues         StockIssue[]        @relation("StockIssueCreatedBy")
+  sales               Sale[]              @relation("SaleCreatedBy")
+  wastageEntries      Wastage[]           @relation("WastageCreatedBy")
+  stockAdjustments    StockAdjustment[]   @relation("AdjustmentCreatedBy")
+  auditLogs           AuditLog[]          @relation("AuditActor")
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Masters
+// ---------------------------------------------------------------------------
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Unit {
+  id        String   @id @default(uuid())
+  name      String   @unique // e.g. Kilogram
+  symbol    String   @unique // e.g. KG
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("units")
+}
+
+model Supplier {
+  id            String   @id @default(uuid())
+  name          String
+  contactPerson String?  @map("contact_person")
+  mobile        String?
+  address       String?
+  gstNumber     String?  @map("gst_number")
+  paymentTerms  String?  @map("payment_terms")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  stockInwards StockInward[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+model Product {
+  id                 String   @id @default(uuid())
+  name               String
+  categoryId         String   @map("category_id")
+  unitId             String   @map("unit_id")
+  minStockLevel      Decimal  @default(0) @map("min_stock_level") @db.Decimal(14, 3)
+  reorderLevel       Decimal  @default(0) @map("reorder_level") @db.Decimal(14, 3)
+  // Whether a POS sale of this product directly draws down Canteen stock
+  // (packaged goods sold as-is) vs. being a prepared item whose ingredients
+  // are drawn down separately via Consumption. See ARCHITECTURE.md §4.
+  trackCanteenStock  Boolean  @default(true) @map("track_canteen_stock")
+  sellPrice          Decimal? @map("sell_price") @db.Decimal(14, 2)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  category Category @relation(fields: [categoryId], references: [id])
+  unit     Unit     @relation(fields: [unitId], references: [id])
+
+  stockInwardItems   StockInwardItem[]
+  stockIssueItems    StockIssueItem[]
+  storeStockBalance  StoreStockBalance?
+  storeStockLedger   StoreStockLedger[]
+  canteenStockBalance CanteenStockBalance?
+  canteenStockLedger CanteenStockLedger[]
+  saleItems          SaleItem[]
+  wastageEntries     Wastage[]
+  stockAdjustments   StockAdjustment[]
+
+  @@unique([name, unitId])
+  @@index([categoryId])
+  @@map("products")
+}
+
+// ---------------------------------------------------------------------------
+// STORE — Stock Inward (Supplier -> Store)
+// ---------------------------------------------------------------------------
+
+model StockInward {
+  id            String   @id @default(uuid())
+  inwardNo      String   @unique @map("inward_no")
+  inwardDate    DateTime @default(now()) @map("inward_date") @db.Date
+  supplierId    String   @map("supplier_id")
+  invoiceNumber String?  @map("invoice_number")
+  totalValue    Decimal  @default(0) @map("total_value") @db.Decimal(14, 2)
+  createdById   String   @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  supplier  Supplier          @relation(fields: [supplierId], references: [id])
+  createdBy User              @relation("StockInwardCreatedBy", fields: [createdById], references: [id])
+  items     StockInwardItem[]
+
+  @@index([supplierId])
+  @@index([inwardDate])
+  @@map("stock_inwards")
+}
+
+model StockInwardItem {
+  id            String   @id @default(uuid())
+  stockInwardId String   @map("stock_inward_id")
+  productId     String   @map("product_id")
+  quantity      Decimal  @db.Decimal(14, 3)
+  rate          Decimal  @db.Decimal(14, 4)
+  totalValue    Decimal  @map("total_value") @db.Decimal(14, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  stockInward StockInward @relation(fields: [stockInwardId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("stock_inward_items")
+}
+
+// ---------------------------------------------------------------------------
+// STORE — Stock Issue (Store -> Canteen)
+// ---------------------------------------------------------------------------
+
+model StockIssue {
+  id          String   @id @default(uuid())
+  issueNo     String   @unique @map("issue_no")
+  issueDate   DateTime @default(now()) @map("issue_date") @db.Date
+  totalValue  Decimal  @default(0) @map("total_value") @db.Decimal(14, 2)
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  createdBy User             @relation("StockIssueCreatedBy", fields: [createdById], references: [id])
+  items     StockIssueItem[]
+
+  @@index([issueDate])
+  @@map("stock_issues")
+}
+
+model StockIssueItem {
+  id                String   @id @default(uuid())
+  stockIssueId      String   @map("stock_issue_id")
+  productId         String   @map("product_id")
+  quantity          Decimal  @db.Decimal(14, 3)
+  issueRate         Decimal  @map("issue_rate") @db.Decimal(14, 4) // current avg rate at time of issue
+  issueValue        Decimal  @map("issue_value") @db.Decimal(14, 2)
+  previousBalance   Decimal  @map("previous_balance") @db.Decimal(14, 3)
+  balanceAfterIssue Decimal  @map("balance_after_issue") @db.Decimal(14, 3)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  stockIssue StockIssue @relation(fields: [stockIssueId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("stock_issue_items")
+}
+
+// ---------------------------------------------------------------------------
+// STORE — current balance (cache of the ledger) + ledger (source of truth)
+// ---------------------------------------------------------------------------
+
+model StoreStockBalance {
+  productId  String   @id @map("product_id")
+  quantity   Decimal  @default(0) @db.Decimal(14, 3)
+  avgRate    Decimal  @default(0) @map("avg_rate") @db.Decimal(14, 4)
+  stockValue Decimal  @default(0) @map("stock_value") @db.Decimal(14, 2)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("store_stock_balances")
+}
+
+model StoreStockLedger {
+  id           String              @id @default(uuid())
+  productId    String              @map("product_id")
+  txnDate      DateTime            @default(now()) @map("txn_date")
+  txnType      StoreLedgerTxnType  @map("txn_type")
+  refId        String?             @map("ref_id") // stock_inward.id / stock_issue.id / adjustment.id
+  inwardQty    Decimal             @default(0) @map("inward_qty") @db.Decimal(14, 3)
+  issueQty     Decimal             @default(0) @map("issue_qty") @db.Decimal(14, 3)
+  rate         Decimal             @db.Decimal(14, 4)
+  balanceQty   Decimal             @map("balance_qty") @db.Decimal(14, 3)
+  balanceValue Decimal             @map("balance_value") @db.Decimal(14, 2)
+  remarks      String?
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, txnDate])
+  @@map("store_stock_ledger")
+}
+
+// ---------------------------------------------------------------------------
+// CANTEEN — current balance + ledger
+// ---------------------------------------------------------------------------
+
+model CanteenStockBalance {
+  productId  String   @id @map("product_id")
+  quantity   Decimal  @default(0) @db.Decimal(14, 3)
+  avgRate    Decimal  @default(0) @map("avg_rate") @db.Decimal(14, 4)
+  stockValue Decimal  @default(0) @map("stock_value") @db.Decimal(14, 2)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("canteen_stock_balances")
+}
+
+model CanteenStockLedger {
+  id           String                @id @default(uuid())
+  productId    String                @map("product_id")
+  txnDate      DateTime              @default(now()) @map("txn_date")
+  txnType      CanteenLedgerTxnType  @map("txn_type")
+  refId        String?               @map("ref_id") // stock_issue_item.id / sale_item.id / wastage.id / adjustment.id
+  inQty        Decimal               @default(0) @map("in_qty") @db.Decimal(14, 3)
+  outQty       Decimal               @default(0) @map("out_qty") @db.Decimal(14, 3)
+  rate         Decimal               @db.Decimal(14, 4)
+  balanceQty   Decimal               @map("balance_qty") @db.Decimal(14, 3)
+  balanceValue Decimal               @map("balance_value") @db.Decimal(14, 2)
+  remarks      String?
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, txnDate])
+  @@map("canteen_stock_ledger")
+}
+
+// ---------------------------------------------------------------------------
+// CANTEEN — Billing / Sales
+// ---------------------------------------------------------------------------
+
+model Sale {
+  id           String      @id @default(uuid())
+  billNo       String      @unique @map("bill_no")
+  billDate     DateTime    @default(now()) @map("bill_date") @db.Date
+  billTime     DateTime    @default(now()) @map("bill_time")
+  subTotal     Decimal     @default(0) @map("sub_total") @db.Decimal(14, 2)
+  discountTotal Decimal    @default(0) @map("discount_total") @db.Decimal(14, 2)
+  grandTotal   Decimal     @default(0) @map("grand_total") @db.Decimal(14, 2)
+  paymentMode  PaymentMode @map("payment_mode")
+  status       SaleStatus  @default(COMPLETED)
+  customerRef  String?     @map("customer_ref") // employee/customer account reference for CREDIT
+  // Client-generated id set by the offline POS queue so a bill retried after
+  // reconnecting is never posted twice. Null for bills created while online.
+  clientRef    String?     @unique @map("client_ref")
+  createdById  String      @map("created_by_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  createdBy User       @relation("SaleCreatedBy", fields: [createdById], references: [id])
+  items     SaleItem[]
+
+  @@index([billDate])
+  @@index([paymentMode])
+  @@map("sales")
+}
+
+model SaleItem {
+  id         String   @id @default(uuid())
+  saleId     String   @map("sale_id")
+  productId  String   @map("product_id")
+  quantity   Decimal  @db.Decimal(14, 3)
+  rate       Decimal  @db.Decimal(14, 2)
+  discount   Decimal  @default(0) @db.Decimal(14, 2)
+  amount     Decimal  @db.Decimal(14, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("sale_items")
+}
+
+// ---------------------------------------------------------------------------
+// CANTEEN — Wastage
+// ---------------------------------------------------------------------------
+
+model Wastage {
+  id          String        @id @default(uuid())
+  wastageDate DateTime      @default(now()) @map("wastage_date") @db.Date
+  productId   String        @map("product_id")
+  quantity    Decimal       @db.Decimal(14, 3)
+  rate        Decimal       @db.Decimal(14, 4)
+  wastageValue Decimal      @map("wastage_value") @db.Decimal(14, 2)
+  reason      WastageReason
+  notes       String?
+  createdById String        @map("created_by_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  product   Product @relation(fields: [productId], references: [id])
+  createdBy User    @relation("WastageCreatedBy", fields: [createdById], references: [id])
+
+  @@index([productId, wastageDate])
+  @@map("wastage")
+}
+
+// ---------------------------------------------------------------------------
+// Stock Adjustments (authorized corrections, Store or Canteen)
+// ---------------------------------------------------------------------------
+
+model StockAdjustment {
+  id          String    @id @default(uuid())
+  area        StockArea
+  productId   String    @map("product_id")
+  quantityDelta Decimal @map("quantity_delta") @db.Decimal(14, 3) // signed
+  rate        Decimal   @db.Decimal(14, 4)
+  valueDelta  Decimal   @map("value_delta") @db.Decimal(14, 2)
+  reason      String
+  createdById String    @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  product   Product @relation(fields: [productId], references: [id])
+  createdBy User    @relation("AdjustmentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([productId])
+  @@map("stock_adjustments")
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  entity    String
+  entityId  String   @map("entity_id")
+  action    String
+  actorId   String?  @map("actor_id")
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Daily bill numbering counter (avoids collisions/gaps under concurrency)
+// ---------------------------------------------------------------------------
+
+model BillCounter {
+  billDate DateTime @id @map("bill_date") @db.Date
+  lastSeq  Int      @default(0) @map("last_seq")
+
+  @@map("bill_counters")
+}

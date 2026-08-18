@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dsrj
+      POSTGRES_PASSWORD: dsrj_dev_password
+      POSTGRES_DB: dsrj_canteen
+    ports:
+      - "5432:5432"
+    volumes:
+      - dsrj_pg_data:/var/lib/postgresql/data
+
+volumes:
+  dsrj_pg_data:
