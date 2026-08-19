@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useCategories, useUnits } from "../../api/queries";
+import { MasterImport } from "../../components/MasterImport";
 
 export function CategoriesUnits() {
   const queryClient = useQueryClient();
@@ -53,6 +54,12 @@ export function CategoriesUnits() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card space-y-3">
           <h2 className="font-semibold">Categories</h2>
+          <MasterImport
+            entity="categories"
+            filename="categories-template.xlsx"
+            hint="Download the template, one category name per row, then upload."
+            invalidateKey={["categories"]}
+          />
           <form
             className="flex gap-2"
             onSubmit={(e: FormEvent) => {
@@ -84,6 +91,12 @@ export function CategoriesUnits() {
 
         <div className="card space-y-3">
           <h2 className="font-semibold">Units</h2>
+          <MasterImport
+            entity="units"
+            filename="units-template.xlsx"
+            hint="Download the template, fill Name and Symbol per row, then upload."
+            invalidateKey={["units"]}
+          />
           <form
             className="flex gap-2"
             onSubmit={(e: FormEvent) => {

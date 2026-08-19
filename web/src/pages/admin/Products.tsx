@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useCategories, useProducts, useUnits } from "../../api/queries";
 import { Modal } from "../../components/Modal";
+import { MasterImport } from "../../components/MasterImport";
 import { Product } from "../../types";
 
 const emptyForm = {
@@ -94,6 +95,13 @@ export function Products() {
           + New Product
         </button>
       </div>
+
+      <MasterImport
+        entity="products"
+        filename="products-template.xlsx"
+        hint="Download the template (Category & Unit must match existing ones — see the Reference sheet), fill one product per row, then upload."
+        invalidateKey={["products"]}
+      />
 
       <div className="card overflow-x-auto p-0">
         <table className="table-base">

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { prisma } from "../../db/prisma";
+import { pool, query } from "../../db/pool";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { requireAuth } from "../../middleware/auth";
-import { getStoreStockSummary } from "../store/store.service";
+import { INWARD_SELECT, ISSUE_SELECT, getStoreStockSummary } from "../store/store.service";
 import { getCanteenStockSummary } from "../canteen/canteen.service";
 import { getDailySalesSummary } from "../canteen/billing.service";
 import {
@@ -40,20 +40,12 @@ function rangeFromQuery(query: Record<string, string | undefined>) {
 
 reportsRouter.get("/store/inward", asyncHandler(async (req, res) => {
   const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
-  res.json(await prisma.stockInward.findMany({
-    where: { inwardDate: { gte: from, lte: to } },
-    include: { items: { include: { product: { include: { unit: true } } } }, supplier: true },
-    orderBy: { inwardDate: "desc" },
-  }));
+  res.json(await query(pool, `${INWARD_SELECT} WHERE si.inward_date >= $1 AND si.inward_date <= $2 ORDER BY si.inward_date DESC`, [from, to]));
 }));
 
 reportsRouter.get("/store/issue", asyncHandler(async (req, res) => {
   const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
-  res.json(await prisma.stockIssue.findMany({
-    where: { issueDate: { gte: from, lte: to } },
-    include: { items: { include: { product: { include: { unit: true } } } } },
-    orderBy: { issueDate: "desc" },
-  }));
+  res.json(await query(pool, `${ISSUE_SELECT} WHERE si.issue_date >= $1 AND si.issue_date <= $2 ORDER BY si.issue_date DESC`, [from, to]));
 }));
 
 reportsRouter.get("/store/product-wise-stock", asyncHandler(async (req, res) => {

@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { Modal } from "../../components/Modal";
+import { PasswordInput } from "../../components/PasswordInput";
 import { AuthUser, Role } from "../../types";
 import { formatDate } from "../../lib/format";
 
 export function Users() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "STORE" as Role });
+  const [form, setForm] = useState({ name: "", username: "", password: "", role: "STORE" as Role });
 
   const { data: users, isLoading } = useQuery({
     queryKey: ["users"],
@@ -22,7 +23,7 @@ export function Users() {
       toast.success("User created");
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setOpen(false);
-      setForm({ name: "", email: "", password: "", role: "STORE" });
+      setForm({ name: "", username: "", password: "", role: "STORE" });
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
@@ -55,7 +56,7 @@ export function Users() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Email</th>
+              <th>Username</th>
               <th>Role</th>
               <th>Status</th>
               <th>Created</th>
@@ -71,7 +72,7 @@ export function Users() {
             {users?.map((u) => (
               <tr key={u.id}>
                 <td className="font-medium">{u.name}</td>
-                <td>{u.email}</td>
+                <td>{u.username}</td>
                 <td>{u.role}</td>
                 <td>{u.active ? <span className="badge-success">Active</span> : <span className="badge-danger">Inactive</span>}</td>
                 <td>{formatDate(u.createdAt)}</td>
@@ -93,18 +94,25 @@ export function Users() {
             <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
-            <label className="label">Email</label>
-            <input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <label className="label">Username</label>
+            <input
+              className="input"
+              type="text"
+              required
+              minLength={3}
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              placeholder="e.g. rajesh.k"
+            />
           </div>
           <div>
             <label className="label">Password</label>
-            <input
-              className="input"
-              type="password"
-              minLength={8}
-              required
+            <PasswordInput
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(v) => setForm({ ...form, password: v })}
+              required
+              minLength={8}
+              autoComplete="new-password"
             />
           </div>
           <div>
@@ -113,6 +121,7 @@ export function Users() {
               <option value="ADMIN">Admin</option>
               <option value="STORE">Store User</option>
               <option value="CANTEEN">Canteen Manager</option>
+              <option value="HOD">HOD / HR</option>
             </select>
           </div>
           <button className="btn-primary w-full" type="submit" disabled={createMutation.isPending}>

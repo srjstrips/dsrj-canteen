@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { ProductSelect } from "../../components/ProductSelect";
+import { BulkImport } from "../../components/BulkImport";
 import { StoreStockRow } from "../../types";
 import { formatCurrency, formatDate, formatQty, todayInput } from "../../lib/format";
 
@@ -53,6 +54,16 @@ export function StockIssue() {
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
 
+  async function importIssue(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("issueDate", issueDate);
+    const res = await api.post<{ importedRows: number }>("/store/stock-issue/import", formData);
+    queryClient.invalidateQueries({ queryKey: ["stock-issues"] });
+    queryClient.invalidateQueries({ queryKey: ["store-stock"] });
+    return res.data;
+  }
+
   function updateLine(index: number, patch: Partial<LineItem>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
   }
@@ -80,6 +91,8 @@ export function StockIssue() {
           <label className="label">Date</label>
           <input className="input" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
         </div>
+
+        <BulkImport templateUrl="/store/stock-issue/template" templateFilename="stock-issue-template.xlsx" onImport={importIssue} />
 
         <div className="space-y-2">
           {lines.map((line, i) => {

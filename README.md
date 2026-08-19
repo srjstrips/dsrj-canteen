@@ -9,14 +9,14 @@ database schema and API design — read that first.
 
 ## Stack
 
-- **Backend**: Node.js, Express, TypeScript, PostgreSQL via Prisma
+- **Backend**: Node.js, Express, TypeScript, PostgreSQL via plain SQL (`pg`, no ORM)
 - **Frontend**: React + TypeScript (Vite), Tailwind CSS, TanStack Query, installable as a PWA with offline POS billing
 - **Auth**: JWT, bcrypt password hashing, role-based middleware
 
 ## Monorepo layout
 
 ```
-server/   Express API, Prisma schema/migrations, stock ledger engine, tests
+server/   Express API, SQL schema/migrations, stock ledger engine, tests
 web/      React web app (desktop-first, responsive, offline-capable)
 docs/     Architecture & schema documentation
 ```
@@ -49,8 +49,8 @@ npm run dev:server   # http://localhost:4000
 npm run dev:web      # http://localhost:5173
 ```
 
-Demo logins (seeded): `admin@dsrj.local` / `store@dsrj.local` / `canteen@dsrj.local`,
-password `Password@123` for all three.
+Demo logins (seeded) — log in with username: `admin` / `store` / `canteen` / `hod`,
+password `Password@123` for all four.
 
 ## Tests
 

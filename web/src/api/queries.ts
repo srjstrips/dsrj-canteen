@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./client";
-import { Category, Product, Supplier, Unit } from "../types";
+import { BillingAccount, Category, Product, Supplier, Unit } from "../types";
 
 export function useProducts(activeOnly = true) {
   return useQuery({
@@ -27,5 +27,17 @@ export function useSuppliers() {
   return useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => (await api.get<Supplier[]>("/masters/suppliers")).data,
+  });
+}
+
+export function useBillingAccounts(params?: { type?: string; activeOnly?: boolean }) {
+  return useQuery({
+    queryKey: ["billing-accounts", params ?? {}],
+    queryFn: async () =>
+      (
+        await api.get<BillingAccount[]>("/managed/accounts", {
+          params: { ...(params?.type ? { type: params.type } : {}), ...(params?.activeOnly ? { active: "true" } : {}) },
+        })
+      ).data,
   });
 }

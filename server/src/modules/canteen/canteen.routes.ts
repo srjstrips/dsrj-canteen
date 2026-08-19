@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { CanteenLedgerTxnType, PaymentMode, Role, StockArea, WastageReason } from "@prisma/client";
-import { prisma } from "../../db/prisma";
+import { pool, query, queryOne } from "../../db/pool";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
+import { CanteenLedgerTxnType, PaymentMode, Role, StockArea, WastageReason } from "../../types/domain";
 import {
   getCanteenLedger,
   getCanteenStockSummary,
@@ -12,7 +12,7 @@ import {
   recordConsumption,
   recordWastage,
 } from "./canteen.service";
-import { createSale, getDailySalesSummary } from "./billing.service";
+import { SALE_SELECT, createSale, getDailySalesSummary } from "./billing.service";
 
 export const canteenRouter = Router();
 canteenRouter.use(requireAuth);
@@ -39,11 +39,18 @@ canteenRouter.get(
   "/received-stock",
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
-    const received = await prisma.canteenStockLedger.findMany({
-      where: { txnType: CanteenLedgerTxnType.RECEIVED, txnDate: { gte: from, lte: to } },
-      include: { product: { include: { unit: true, category: true } } },
-      orderBy: { txnDate: "desc" },
-    });
+    const received = await query(
+      pool,
+      `SELECT cl.*,
+          jsonb_build_object('name', p.name, 'unit', jsonb_build_object('symbol', u.symbol), 'category', jsonb_build_object('name', c.name)) AS product
+       FROM canteen_stock_ledger cl
+       JOIN products p ON p.id = cl.product_id
+       JOIN units u ON u.id = p.unit_id
+       JOIN categories c ON c.id = p.category_id
+       WHERE cl.txn_type = $1 AND cl.txn_date >= $2 AND cl.txn_date <= $3
+       ORDER BY cl.txn_date DESC`,
+      [CanteenLedgerTxnType.RECEIVED, from, to]
+    );
     res.json(received);
   })
 );
@@ -118,11 +125,20 @@ canteenRouter.get(
   "/wastage",
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
-    const rows = await prisma.wastage.findMany({
-      where: { wastageDate: { gte: from, lte: to } },
-      include: { product: { include: { unit: true, category: true } }, createdBy: { select: { id: true, name: true } } },
-      orderBy: { wastageDate: "desc" },
-    });
+    const rows = await query(
+      pool,
+      `SELECT w.*,
+          jsonb_build_object('name', p.name, 'unit', jsonb_build_object('symbol', u.symbol), 'category', jsonb_build_object('name', c.name)) AS product,
+          jsonb_build_object('name', cb.name) AS "createdBy"
+       FROM wastage w
+       JOIN products p ON p.id = w.product_id
+       JOIN units u ON u.id = p.unit_id
+       JOIN categories c ON c.id = p.category_id
+       JOIN users cb ON cb.id = w.created_by_id
+       WHERE w.wastage_date >= $1 AND w.wastage_date <= $2
+       ORDER BY w.wastage_date DESC`,
+      [from, to]
+    );
     res.json(rows);
   })
 );
@@ -155,11 +171,19 @@ canteenRouter.get(
   requireRole(Role.ADMIN),
   asyncHandler(async (req, res) => {
     const area = req.query.area as StockArea | undefined;
-    const rows = await prisma.stockAdjustment.findMany({
-      where: { area },
-      include: { product: { include: { unit: true } }, createdBy: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
-    });
+    const rows = await query(
+      pool,
+      `SELECT sa.*,
+          jsonb_build_object('name', p.name, 'unit', jsonb_build_object('symbol', u.symbol)) AS product,
+          jsonb_build_object('name', cb.name) AS "createdBy"
+       FROM stock_adjustments sa
+       JOIN products p ON p.id = sa.product_id
+       JOIN units u ON u.id = p.unit_id
+       JOIN users cb ON cb.id = sa.created_by_id
+       ${area ? "WHERE sa.area = $1" : ""}
+       ORDER BY sa.created_at DESC`,
+      area ? [area] : []
+    );
     res.json(rows);
   })
 );
@@ -198,11 +222,7 @@ canteenRouter.get(
   "/sales",
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
-    const sales = await prisma.sale.findMany({
-      where: { billDate: { gte: from, lte: to } },
-      include: { items: { include: { product: true } }, createdBy: { select: { id: true, name: true } } },
-      orderBy: { billTime: "desc" },
-    });
+    const sales = await query(pool, `${SALE_SELECT} WHERE s.bill_date >= $1 AND s.bill_date <= $2 ORDER BY s.bill_time DESC`, [from, to]);
     res.json(sales);
   })
 );
@@ -226,41 +246,42 @@ canteenRouter.get(
     const from = startOfDay(today);
     const to = endOfDay(today);
 
-    const [dailySales, balances, wastageAgg, consumptionAgg, products, topSelling] = await Promise.all([
+    const [dailySales, stockValueRow, wastageRow, consumptionRow, lowStockRow, topSelling] = await Promise.all([
       getDailySalesSummary(from, to),
-      prisma.canteenStockBalance.aggregate({ _sum: { stockValue: true } }),
-      prisma.wastage.aggregate({ where: { wastageDate: { gte: from, lte: to } }, _sum: { wastageValue: true } }),
-      prisma.canteenStockLedger.aggregate({
-        where: { txnType: CanteenLedgerTxnType.CONSUMPTION, txnDate: { gte: from, lte: to } },
-        _sum: { outQty: true },
-      }),
-      prisma.product.findMany({ where: { active: true }, include: { canteenStockBalance: true } }),
-      prisma.saleItem.groupBy({
-        by: ["productId"],
-        where: { sale: { billDate: { gte: from, lte: to } } },
-        _sum: { quantity: true, amount: true },
-        orderBy: { _sum: { amount: "desc" } },
-        take: 5,
-      }),
+      queryOne<{ total: string | null }>(pool, "SELECT SUM(stock_value) AS total FROM canteen_stock_balances"),
+      queryOne<{ total: string | null }>(pool, "SELECT SUM(wastage_value) AS total FROM wastage WHERE wastage_date >= $1 AND wastage_date <= $2", [from, to]),
+      queryOne<{ total: string | null }>(
+        pool,
+        "SELECT SUM(out_qty) AS total FROM canteen_stock_ledger WHERE txn_type = 'CONSUMPTION' AND txn_date >= $1 AND txn_date <= $2",
+        [from, to]
+      ),
+      queryOne<{ count: string }>(
+        pool,
+        `SELECT COUNT(*) AS count FROM products p LEFT JOIN canteen_stock_balances b ON b.product_id = p.id
+         WHERE p.active = TRUE AND COALESCE(b.quantity, 0) <= p.min_stock_level`
+      ),
+      query<{ productId: string; name: string; quantity: string; amount: string }>(
+        pool,
+        `SELECT si.product_id AS "productId", p.name, SUM(si.quantity) AS quantity, SUM(si.amount) AS amount
+         FROM sale_items si
+         JOIN sales s ON s.id = si.sale_id
+         JOIN products p ON p.id = si.product_id
+         WHERE s.bill_date >= $1 AND s.bill_date <= $2
+         GROUP BY si.product_id, p.name
+         ORDER BY SUM(si.amount) DESC
+         LIMIT 5`,
+        [from, to]
+      ),
     ]);
-
-    const lowStockCount = products.filter((p) => (p.canteenStockBalance?.quantity.toNumber() ?? 0) <= p.minStockLevel.toNumber()).length;
-
-    const topProducts = await Promise.all(
-      topSelling.map(async (row) => {
-        const product = await prisma.product.findUnique({ where: { id: row.productId } });
-        return { productId: row.productId, name: product?.name ?? "Unknown", quantity: row._sum.quantity, amount: row._sum.amount };
-      })
-    );
 
     res.json({
       todaysSales: dailySales.totalSales,
       totalBills: dailySales.totalBills,
-      canteenStockValue: balances._sum.stockValue ?? 0,
-      todaysWastageValue: wastageAgg._sum.wastageValue ?? 0,
-      todaysConsumptionQty: consumptionAgg._sum.outQty ?? 0,
-      lowStockCount,
-      topSellingProducts: topProducts,
+      canteenStockValue: stockValueRow?.total ?? 0,
+      todaysWastageValue: wastageRow?.total ?? 0,
+      todaysConsumptionQty: consumptionRow?.total ?? 0,
+      lowStockCount: Number(lowStockRow?.count ?? 0),
+      topSellingProducts: topSelling,
     });
   })
 );

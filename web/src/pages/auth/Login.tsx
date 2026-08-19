@@ -3,11 +3,12 @@ import { Navigate, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../../auth/AuthContext";
 import { apiErrorMessage } from "../../api/client";
+import { PasswordInput } from "../../components/PasswordInput";
 
 export function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -17,10 +18,10 @@ export function Login() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(username, password);
       navigate("/");
     } catch (error) {
-      toast.error(apiErrorMessage(error, "Invalid email or password"));
+      toast.error(apiErrorMessage(error, "Invalid username or password"));
     } finally {
       setSubmitting(false);
     }
@@ -36,12 +37,20 @@ export function Login() {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">Email</label>
-            <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@dsrj.local" />
+            <label className="label">Username</label>
+            <input
+              className="input"
+              type="text"
+              autoComplete="username"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. admin"
+            />
           </div>
           <div>
             <label className="label">Password</label>
-            <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <PasswordInput value={password} onChange={setPassword} required autoComplete="current-password" />
           </div>
           <button type="submit" className="btn-primary w-full" disabled={submitting}>
             {submitting ? "Signing in…" : "Sign in"}

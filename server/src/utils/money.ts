@@ -1,22 +1,22 @@
-import { Prisma } from "@prisma/client";
+import { Decimal as DecimalJs } from "decimal.js";
 
-export const Decimal = Prisma.Decimal;
-export type Decimal = Prisma.Decimal;
+export const Decimal = DecimalJs;
+export type Decimal = DecimalJs;
 
-export type DecimalInput = Prisma.Decimal | number | string;
+export type DecimalInput = DecimalJs | number | string | null | undefined;
 
-export function D(value: DecimalInput): Prisma.Decimal {
-  return new Prisma.Decimal(value);
+export function D(value: DecimalInput): DecimalJs {
+  return new DecimalJs(value ?? 0);
 }
 
 /** Round to 2 decimal places (paise), round-half-up — matches how the
  * spec's worked examples round rupee amounts and per-unit rates. */
-export function round2(value: DecimalInput): Prisma.Decimal {
-  return D(value).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+export function round2(value: DecimalInput): DecimalJs {
+  return D(value).toDecimalPlaces(2, DecimalJs.ROUND_HALF_UP);
 }
 
-export function round3(value: DecimalInput): Prisma.Decimal {
-  return D(value).toDecimalPlaces(3, Prisma.Decimal.ROUND_HALF_UP);
+export function round3(value: DecimalInput): DecimalJs {
+  return D(value).toDecimalPlaces(3, DecimalJs.ROUND_HALF_UP);
 }
 
 /**

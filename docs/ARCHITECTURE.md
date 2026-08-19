@@ -116,10 +116,18 @@ ingredients are drawn down instead via Consumption) — this is the
 "ingredients vs. direct-sale products" split the spec calls out in §14 as
 needing separate treatment.
 
-## 5. Database Schema (PostgreSQL, via Prisma)
+## 5. Database Schema (PostgreSQL, plain SQL via `pg`)
 
-Core tables (see `server/prisma/schema.prisma` for the authoritative,
-fully-typed definition with indexes/constraints):
+No ORM: the schema is hand-written SQL in `server/db/migrations/*.sql`,
+applied by a small migration runner (`server/src/db/migrate.ts`) that tracks
+what's been applied in a `schema_migrations` table — add a new numbered
+`.sql` file for any future change rather than editing an applied one. The
+app talks to Postgres directly through `pg` (`server/src/db/pool.ts`
+exports a `Pool`, `query`/`queryOne` helpers that camelCase result rows, and
+`withTransaction` for multi-statement work) — see `server/db/migrations/0001_init.sql`
+for the authoritative, fully-typed definition with indexes/constraints.
+
+Core tables:
 
 - `users`, with `role` enum (`ADMIN`, `STORE`, `CANTEEN`)
 - `categories`, `units`, `products` (FK category/unit, `min_stock_level`,
@@ -174,6 +182,21 @@ GET    /api/auth/me
 /api/admin/dashboard
 /api/reports/management/*
 ```
+
+## 6a. Bulk entry via Excel
+
+Stock Inward and Stock Issue both support a bulk path alongside the manual
+line-by-line form: `GET /api/store/stock-inward/template` (and the
+`stock-issue` equivalent) returns an `.xlsx` pre-filled with every active
+Product Master row (ID/Name/Unit, plus current average rate for issues) —
+the user only fills in Quantity (and Rate, for inward) against products that
+already exist, never free-typing a name (spec §3). `POST .../import` (multipart,
+field `file`) parses the filled sheet server-side with `exceljs`, validates
+every non-blank row, and — only if the whole file is valid — feeds the parsed
+rows into the exact same `recordStockInward`/`issueStockToCanteen` functions
+the manual form calls, so bulk entry goes through identical weighted-average
+and insufficient-stock checks. A file with any invalid row is rejected whole
+with a per-row error list rather than partially imported.
 
 ## 7. Frontend
 

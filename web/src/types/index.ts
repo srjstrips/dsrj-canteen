@@ -1,9 +1,51 @@
-export type Role = "ADMIN" | "STORE" | "CANTEEN";
+export type Role = "ADMIN" | "STORE" | "CANTEEN" | "HOD";
+
+export type BillingAccountType = "COMPANY" | "CONTRACTOR";
+
+export interface BillingAccount {
+  id: string;
+  name: string;
+  type: BillingAccountType;
+  contactPerson?: string | null;
+  mobile?: string | null;
+  active: boolean;
+}
+
+export type ManagedOrderType = "OT" | "GUEST" | "CONTRACTOR";
+export type ManagedOrderStatus = "PLACED" | "SERVED" | "CANCELLED";
+export type ExtraStatus = "PENDING" | "CONFIRMED" | "REJECTED";
+
+export interface ManagedOrderItem {
+  id: string;
+  productId: string;
+  quantity: string;
+  rate: string;
+  amount: string;
+  isExtra: boolean;
+  extraStatus: ExtraStatus;
+  product: { id: string; name: string; unit: { symbol: string } };
+}
+
+export interface ManagedOrder {
+  id: string;
+  orderNo: string;
+  orderDate: string;
+  orderType: ManagedOrderType;
+  dinerName: string;
+  shift?: string | null;
+  status: ManagedOrderStatus;
+  account: { id: string; name: string; type: BillingAccountType };
+  placedBy: { id: string; name: string };
+  servedBy?: { id: string; name: string } | null;
+  servedAt?: string | null;
+  createdAt: string;
+  items: ManagedOrderItem[];
+}
 
 export interface AuthUser {
   id: string;
   name: string;
-  email: string;
+  username: string;
   role: Role;
 }
 

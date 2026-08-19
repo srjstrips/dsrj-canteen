@@ -1,9 +1,7 @@
-import { Prisma, PrismaClient } from "@prisma/client";
-
-type Tx = Prisma.TransactionClient | PrismaClient;
+import { DbClient, query } from "../db/pool";
 
 export async function writeAudit(
-  tx: Tx,
+  client: DbClient,
   params: {
     entity: string;
     entityId: string;
@@ -13,14 +11,17 @@ export async function writeAudit(
     after?: unknown;
   }
 ) {
-  await tx.auditLog.create({
-    data: {
-      entity: params.entity,
-      entityId: params.entityId,
-      action: params.action,
-      actorId: params.actorId ?? null,
-      before: params.before === undefined ? Prisma.JsonNull : (params.before as Prisma.InputJsonValue),
-      after: params.after === undefined ? Prisma.JsonNull : (params.after as Prisma.InputJsonValue),
-    },
-  });
+  await query(
+    client,
+    `INSERT INTO audit_logs (entity, entity_id, action, actor_id, before, after)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      params.entity,
+      params.entityId,
+      params.action,
+      params.actorId ?? null,
+      params.before === undefined ? null : JSON.stringify(params.before),
+      params.after === undefined ? null : JSON.stringify(params.after),
+    ]
+  );
 }

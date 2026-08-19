@@ -36,10 +36,19 @@ export const navSections: NavSection[] = [
       { label: "Received Stock", to: "/canteen/received-stock", roles: ["CANTEEN"] },
       { label: "Canteen Stock", to: "/canteen/stock", roles: ["CANTEEN"] },
       { label: "Billing / POS", to: "/canteen/billing", roles: ["CANTEEN"] },
+      { label: "OT / Guest / Contractor Orders", to: "/canteen/managed-orders", roles: ["CANTEEN"] },
       { label: "Daily Sales", to: "/canteen/daily-sales", roles: ["CANTEEN"] },
       { label: "Consumption", to: "/canteen/consumption", roles: ["CANTEEN"] },
       { label: "Wastage", to: "/canteen/wastage", roles: ["CANTEEN"] },
       { label: "Canteen Reports", to: "/canteen/reports", roles: ["CANTEEN"] },
+    ],
+  },
+  {
+    title: "HOD / HR",
+    items: [
+      { label: "Place Orders", to: "/hod/place-orders", roles: ["HOD"] },
+      { label: "Extra Approvals", to: "/hod/approvals", roles: ["HOD"] },
+      { label: "Monthly Statements", to: "/hod/statements", roles: ["HOD"] },
     ],
   },
   {
@@ -49,8 +58,10 @@ export const navSections: NavSection[] = [
       { label: "Products", to: "/admin/products", roles: [] },
       { label: "Categories & Units", to: "/admin/categories", roles: [] },
       { label: "Suppliers", to: "/admin/suppliers", roles: [] },
+      { label: "Billing Accounts", to: "/admin/billing-accounts", roles: [] },
       { label: "Stock Adjustments", to: "/admin/adjustments", roles: [] },
       { label: "Management Reports", to: "/admin/reports", roles: [] },
+      { label: "Reset Data", to: "/admin/reset-data", roles: [] },
     ],
   },
 ];

@@ -12,6 +12,9 @@ import { storeRouter } from "./modules/store/store.routes";
 import { canteenRouter } from "./modules/canteen/canteen.routes";
 import { reportsRouter } from "./modules/reports/reports.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
+import { managedRouter } from "./modules/managed/managed.routes";
+import { resetRouter } from "./modules/admin/reset.routes";
+import { importsRouter } from "./modules/imports/imports.routes";
 
 export function createApp() {
   const app = express();
@@ -33,6 +36,9 @@ export function createApp() {
   app.use("/api/canteen", canteenRouter);
   app.use("/api/reports", reportsRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/managed", managedRouter);
+  app.use("/api/admin", resetRouter);
+  app.use("/api/imports", importsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

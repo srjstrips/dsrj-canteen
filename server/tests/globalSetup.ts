@@ -19,7 +19,7 @@ export default async function globalSetup() {
     if (!/already exists/i.test(message)) throw e;
   }
 
-  execSync("npx prisma migrate deploy", {
+  execSync("npx tsx src/db/migrate.ts", {
     stdio: "inherit",
     env: { ...process.env, DATABASE_URL: dbUrl },
   });

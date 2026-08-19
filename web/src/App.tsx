@@ -11,6 +11,12 @@ import { CategoriesUnits } from "./pages/admin/CategoriesUnits";
 import { Suppliers } from "./pages/admin/Suppliers";
 import { Adjustments } from "./pages/admin/Adjustments";
 import { ManagementReports } from "./pages/admin/ManagementReports";
+import { BillingAccounts } from "./pages/admin/BillingAccounts";
+import { ResetData } from "./pages/admin/ResetData";
+import { PlaceOrders } from "./pages/hod/PlaceOrders";
+import { Approvals } from "./pages/hod/Approvals";
+import { Statements } from "./pages/hod/Statements";
+import { ManagedOrders } from "./pages/canteen/ManagedOrders";
 import { StoreDashboard } from "./pages/store/StoreDashboard";
 import { StockInward } from "./pages/store/StockInward";
 import { StoreStock } from "./pages/store/StoreStock";
@@ -32,6 +38,7 @@ function HomeRedirect() {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "STORE") return <Navigate to="/store/dashboard" replace />;
   if (user.role === "CANTEEN") return <Navigate to="/canteen/dashboard" replace />;
+  if (user.role === "HOD") return <Navigate to="/hod/place-orders" replace />;
   return <Navigate to="/admin/dashboard" replace />;
 }
 
@@ -57,6 +64,16 @@ export function App() {
             <Route path="/admin/suppliers" element={<Suppliers />} />
             <Route path="/admin/adjustments" element={<Adjustments />} />
             <Route path="/admin/reports" element={<ManagementReports />} />
+            <Route path="/admin/billing-accounts" element={<BillingAccounts />} />
+            <Route path="/admin/reset-data" element={<ResetData />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allow={["HOD"]} />}>
+            <Route path="/hod/place-orders" element={<PlaceOrders />} />
+            <Route path="/hod/approvals" element={<Approvals />} />
+          </Route>
+          <Route element={<ProtectedRoute allow={["HOD", "ADMIN"]} />}>
+            <Route path="/hod/statements" element={<Statements />} />
           </Route>
 
           <Route element={<ProtectedRoute allow={["STORE"]} />}>
@@ -78,6 +95,7 @@ export function App() {
             <Route path="/canteen/daily-sales" element={<DailySales />} />
             <Route path="/canteen/consumption" element={<Consumption />} />
             <Route path="/canteen/wastage" element={<Wastage />} />
+            <Route path="/canteen/managed-orders" element={<ManagedOrders />} />
             <Route path="/canteen/reports" element={<CanteenReports />} />
           </Route>
         </Route>

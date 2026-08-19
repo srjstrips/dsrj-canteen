@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useSuppliers } from "../../api/queries";
 import { ProductSelect } from "../../components/ProductSelect";
+import { BulkImport } from "../../components/BulkImport";
 import { formatCurrency, formatDate, todayInput } from "../../lib/format";
 
 interface LineItem {
@@ -58,6 +59,22 @@ export function StockInward() {
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
 
+  async function importInward(file: File) {
+    if (!supplierId) {
+      toast.error("Select a supplier before bulk importing");
+      throw new Error("Supplier is required");
+    }
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("supplierId", supplierId);
+    if (invoiceNumber) formData.append("invoiceNumber", invoiceNumber);
+    formData.append("inwardDate", inwardDate);
+    const res = await api.post<{ importedRows: number }>("/store/stock-inward/import", formData);
+    queryClient.invalidateQueries({ queryKey: ["stock-inwards"] });
+    queryClient.invalidateQueries({ queryKey: ["store-stock"] });
+    return res.data;
+  }
+
   function updateLine(index: number, patch: Partial<LineItem>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
   }
@@ -102,6 +119,8 @@ export function StockInward() {
             <input className="input" type="date" value={inwardDate} onChange={(e) => setInwardDate(e.target.value)} />
           </div>
         </div>
+
+        <BulkImport templateUrl="/store/stock-inward/template" templateFilename="stock-inward-template.xlsx" onImport={importInward} disabled={!supplierId} />
 
         <div className="space-y-2">
           {lines.map((line, i) => {

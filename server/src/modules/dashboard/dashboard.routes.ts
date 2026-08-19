@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { Role } from "@prisma/client";
-import { prisma } from "../../db/prisma";
+import { pool, queryOne } from "../../db/pool";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { requireAuth, requireRole } from "../../middleware/auth";
+import { Role } from "../../types/domain";
 import { getDailySalesSummary } from "../canteen/billing.service";
 import { purchaseVsSalesReport, wastageCostReport } from "../reports/reports.service";
 
@@ -27,25 +27,25 @@ dashboardRouter.get(
     const monthTo = endOfDay(today);
 
     const [storeValue, canteenValue, todaySales, monthSales, monthPurchases, wastage, productCount, userCount] = await Promise.all([
-      prisma.storeStockBalance.aggregate({ _sum: { stockValue: true } }),
-      prisma.canteenStockBalance.aggregate({ _sum: { stockValue: true } }),
+      queryOne<{ total: string | null }>(pool, "SELECT SUM(stock_value) AS total FROM store_stock_balances"),
+      queryOne<{ total: string | null }>(pool, "SELECT SUM(stock_value) AS total FROM canteen_stock_balances"),
       getDailySalesSummary(dayFrom, dayTo),
       getDailySalesSummary(monthFrom, monthTo),
       purchaseVsSalesReport(monthFrom, monthTo),
       wastageCostReport(monthFrom, monthTo),
-      prisma.product.count({ where: { active: true } }),
-      prisma.user.count({ where: { active: true } }),
+      queryOne<{ count: string }>(pool, "SELECT COUNT(*) AS count FROM products WHERE active = TRUE"),
+      queryOne<{ count: string }>(pool, "SELECT COUNT(*) AS count FROM users WHERE active = TRUE"),
     ]);
 
     res.json({
-      storeStockValue: storeValue._sum.stockValue ?? 0,
-      canteenStockValue: canteenValue._sum.stockValue ?? 0,
+      storeStockValue: storeValue?.total ?? 0,
+      canteenStockValue: canteenValue?.total ?? 0,
       todaysSales: todaySales.totalSales,
       monthlySales: monthSales.totalSales,
       monthlyPurchases: monthPurchases.totalPurchaseValue,
       monthlyWastageValue: wastage.reduce((sum, w) => sum + Number(w.value), 0),
-      activeProducts: productCount,
-      activeUsers: userCount,
+      activeProducts: Number(productCount?.count ?? 0),
+      activeUsers: Number(userCount?.count ?? 0),
     });
   })
 );

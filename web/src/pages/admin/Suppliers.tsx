@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useSuppliers } from "../../api/queries";
 import { Modal } from "../../components/Modal";
+import { MasterImport } from "../../components/MasterImport";
 import { Supplier } from "../../types";
 
 const emptyForm = { name: "", contactPerson: "", mobile: "", address: "", gstNumber: "", paymentTerms: "" };
@@ -63,6 +64,13 @@ export function Suppliers() {
           + New Supplier
         </button>
       </div>
+
+      <MasterImport
+        entity="suppliers"
+        filename="suppliers-template.xlsx"
+        hint="Download the template, fill one supplier per row (Name required), then upload."
+        invalidateKey={["suppliers"]}
+      />
 
       <div className="card overflow-x-auto p-0">
         <table className="table-base">

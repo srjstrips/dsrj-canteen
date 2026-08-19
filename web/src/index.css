@@ -44,4 +44,10 @@ body {
   .badge-danger {
     @apply inline-flex items-center rounded-full bg-danger-light px-2 py-0.5 text-xs font-semibold text-danger;
   }
+  .badge-warning {
+    @apply inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700;
+  }
+  .badge-info {
+    @apply inline-flex items-center rounded-full bg-primary-light px-2 py-0.5 text-xs font-semibold text-primary;
+  }
 }
