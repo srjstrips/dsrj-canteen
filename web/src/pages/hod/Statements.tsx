@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useBillingAccounts } from "../../api/queries";
+import { Combobox } from "../../components/Combobox";
 import { formatCurrency, formatDate, formatQty } from "../../lib/format";
 
 interface Statement {
@@ -39,14 +40,12 @@ export function Statements() {
       <div className="card grid grid-cols-1 gap-3 md:grid-cols-3 md:items-end">
         <div>
           <label className="label">Account</label>
-          <select className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-            <option value="">Select account…</option>
-            {accounts?.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} ({a.type === "COMPANY" ? "Company" : "Contractor"})
-              </option>
-            ))}
-          </select>
+          <Combobox
+            value={accountId}
+            onChange={setAccountId}
+            options={(accounts ?? []).map((a) => ({ value: a.id, label: `${a.name} (${a.type === "COMPANY" ? "Company" : "Contractor"})` }))}
+            placeholder="Type to search account…"
+          />
         </div>
         <div>
           <label className="label">Month</label>

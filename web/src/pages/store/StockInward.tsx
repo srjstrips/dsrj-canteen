@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useSuppliers } from "../../api/queries";
+import { Combobox } from "../../components/Combobox";
 import { ProductSelect } from "../../components/ProductSelect";
 import { BulkImport } from "../../components/BulkImport";
 import { formatCurrency, formatDate, todayInput } from "../../lib/format";
@@ -101,14 +102,12 @@ export function StockInward() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div>
             <label className="label">Supplier</label>
-            <select className="input" required value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-              <option value="">Select supplier…</option>
-              {suppliers?.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <Combobox
+              value={supplierId}
+              onChange={setSupplierId}
+              options={(suppliers ?? []).map((s) => ({ value: s.id, label: s.name }))}
+              placeholder="Type to search supplier…"
+            />
           </div>
           <div>
             <label className="label">Invoice Number</label>

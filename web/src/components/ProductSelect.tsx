@@ -1,9 +1,10 @@
 import { useProducts, useSellableProducts } from "../api/queries";
+import { Combobox } from "./Combobox";
 
 export function ProductSelect({
   value,
   onChange,
-  placeholder = "Select product…",
+  placeholder = "Type to search product…",
   className = "input",
   sellableOnly = false,
 }: {
@@ -18,14 +19,16 @@ export function ProductSelect({
   const sellable = useSellableProducts();
   const { data: products, isLoading } = sellableOnly ? sellable : all;
 
+  const options = (products ?? []).map((p) => ({ value: p.id, label: `${p.name} (${p.unit.symbol})` }));
+
   return (
-    <select className={className} value={value} onChange={(e) => onChange(e.target.value)} disabled={isLoading}>
-      <option value="">{isLoading ? "Loading…" : placeholder}</option>
-      {products?.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name} ({p.unit.symbol})
-        </option>
-      ))}
-    </select>
+    <Combobox
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={isLoading ? "Loading…" : placeholder}
+      disabled={isLoading}
+      className={className}
+    />
   );
 }

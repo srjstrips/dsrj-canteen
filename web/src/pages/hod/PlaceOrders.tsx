@@ -5,6 +5,7 @@ import { api, apiErrorMessage } from "../../api/client";
 import { useBillingAccounts, useProducts } from "../../api/queries";
 import { ProductSelect } from "../../components/ProductSelect";
 import { Modal } from "../../components/Modal";
+import { Combobox } from "../../components/Combobox";
 import { formatCurrency, formatDateTime } from "../../lib/format";
 import { ManagedOrder, ManagedOrderType } from "../../types";
 
@@ -153,14 +154,12 @@ export function PlaceOrders() {
           {isContractor ? (
             <div>
               <label className="label">Contractor</label>
-              <select className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-                <option value="">Select contractor…</option>
-                {accounts?.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+              <Combobox
+                value={accountId}
+                onChange={setAccountId}
+                options={(accounts ?? []).map((a) => ({ value: a.id, label: a.name }))}
+                placeholder="Type to search contractor…"
+              />
               {accounts?.length === 0 && <p className="mt-1 text-xs text-danger">No contractor accounts — ask Admin to add one.</p>}
             </div>
           ) : (
