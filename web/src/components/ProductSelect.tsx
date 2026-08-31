@@ -1,17 +1,22 @@
-import { useProducts } from "../api/queries";
+import { useProducts, useSellableProducts } from "../api/queries";
 
 export function ProductSelect({
   value,
   onChange,
   placeholder = "Select product…",
   className = "input",
+  sellableOnly = false,
 }: {
   value: string;
   onChange: (productId: string) => void;
   placeholder?: string;
   className?: string;
+  /** When true, only priced (sellable) products are listed — for POS / OT orders. */
+  sellableOnly?: boolean;
 }) {
-  const { data: products, isLoading } = useProducts(true);
+  const all = useProducts(true);
+  const sellable = useSellableProducts();
+  const { data: products, isLoading } = sellableOnly ? sellable : all;
 
   return (
     <select className={className} value={value} onChange={(e) => onChange(e.target.value)} disabled={isLoading}>

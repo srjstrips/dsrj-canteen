@@ -2,11 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import axios from "axios";
-import { api } from "../../api/client";
-import { useCategories, useProducts } from "../../api/queries";
+import { api, imageSrc } from "../../api/client";
+import { useCategories, useSellableProducts } from "../../api/queries";
 import { queueSaleOffline } from "../../offline/offlineQueue";
 import { formatCurrency, formatDateTime } from "../../lib/format";
-import { PaymentMode, Sale } from "../../types";
+import { CanteenStockRow, PaymentMode, Sale } from "../../types";
 
 interface CartLine {
   productId: string;
@@ -30,7 +30,7 @@ interface ReceiptData {
 
 export function Billing() {
   const queryClient = useQueryClient();
-  const { data: products } = useProducts(true);
+  const { data: products } = useSellableProducts();
   const { data: categories } = useCategories();
 
   const [search, setSearch] = useState("");
@@ -45,6 +45,30 @@ export function Billing() {
     queryKey: ["sales", "today"],
     queryFn: async () => (await api.get<Sale[]>("/canteen/sales")).data,
   });
+
+  // Stock quantities (only meaningful for stock-tracked packaged goods).
+  const { data: canteenStock } = useQuery({
+    queryKey: ["canteen-stock", "pos"],
+    queryFn: async () => (await api.get<CanteenStockRow[]>("/canteen/stock")).data,
+  });
+  const stockFor = (productId: string) => canteenStock?.find((s) => s.productId === productId)?.balanceQty;
+
+  // Product count per category for the tab badges.
+  const countByCategory = useMemo(() => {
+    const m = new Map<string, number>();
+    (products ?? []).forEach((p) => m.set(p.categoryId, (m.get(p.categoryId) ?? 0) + 1));
+    return m;
+  }, [products]);
+  const activeCategories = (categories ?? []).filter((c) => (countByCategory.get(c.id) ?? 0) > 0);
+
+  const qtyInCart = (productId: string) => cart.find((l) => l.productId === productId)?.quantity ?? 0;
+  function changeQty(productId: string, delta: number) {
+    const current = qtyInCart(productId);
+    const next = Number((current + delta).toFixed(3));
+    if (next <= 0) return removeLine(productId);
+    if (current === 0) return addToCart(productId);
+    updateLine(productId, { quantity: next });
+  }
 
   const filteredProducts = useMemo(() => {
     return (products ?? []).filter((p) => {
@@ -130,47 +154,90 @@ export function Billing() {
     }
   }
 
+  const totalItems = cart.reduce((sum, l) => sum + l.quantity, 0);
+
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_400px]">
       <div className="space-y-4">
-        <div>
-          <h1 className="text-xl font-bold">Billing / POS</h1>
-          <p className="text-sm text-muted">Tap a product to add it to the bill</p>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🛒</span>
+          <div>
+            <h1 className="text-xl font-bold">Billing / POS</h1>
+            <p className="text-sm text-muted">Tap a product to add it to the bill</p>
+          </div>
+        </div>
+
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">🔍</span>
+          <input className="input pl-9" placeholder="Search product…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <input className="input max-w-xs" placeholder="Search product…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <button className={categoryId === "" ? "btn-primary !px-3 !py-1.5 text-xs" : "btn-secondary !px-3 !py-1.5 text-xs"} onClick={() => setCategoryId("")}>
-            All
+          <button
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${categoryId === "" ? "bg-primary text-white" : "border border-border bg-card hover:bg-background"}`}
+            onClick={() => setCategoryId("")}
+          >
+            All ({products?.length ?? 0})
           </button>
-          {categories?.map((c) => (
+          {activeCategories.map((c) => (
             <button
               key={c.id}
-              className={categoryId === c.id ? "btn-primary !px-3 !py-1.5 text-xs" : "btn-secondary !px-3 !py-1.5 text-xs"}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium ${categoryId === c.id ? "bg-primary text-white" : "border border-border bg-card hover:bg-background"}`}
               onClick={() => setCategoryId(c.id)}
             >
-              {c.name}
+              {c.name} ({countByCategory.get(c.id)})
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {filteredProducts.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => addToCart(p.id)}
-              className="card flex flex-col items-start gap-1 text-left transition hover:border-primary hover:shadow-md"
-            >
-              <span className="font-semibold">{p.name}</span>
-              <span className="text-xs text-muted">{p.category.name}</span>
-              <span className="mt-auto text-sm font-bold text-primary">{p.sellPrice ? formatCurrency(p.sellPrice) : "Set price"}</span>
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          {filteredProducts.map((p) => {
+            const qty = qtyInCart(p.id);
+            const selected = qty > 0;
+            const stock = p.trackCanteenStock ? stockFor(p.id) : undefined;
+            return (
+              <div
+                key={p.id}
+                className={`overflow-hidden rounded-xl border bg-card transition ${selected ? "border-primary shadow-md ring-1 ring-primary" : "border-border hover:border-primary hover:shadow-md"}`}
+              >
+                <button className="block w-full text-left" onClick={() => addToCart(p.id)}>
+                  {p.imageUrl ? (
+                    <img src={imageSrc(p.imageUrl)} alt="" className="h-28 w-full object-cover" />
+                  ) : (
+                    <div className="flex h-28 w-full items-center justify-center bg-background text-3xl text-muted">🍽</div>
+                  )}
+                  <div className="p-3">
+                    <p className="font-semibold leading-tight">{p.name}</p>
+                    <p className="text-xs text-muted">{p.category.name}</p>
+                    <p className="mt-1 font-bold text-primary">{p.sellPrice ? formatCurrency(p.sellPrice) : "Set price"}</p>
+                    {stock !== undefined && <p className="text-xs font-medium text-success">Stock: {Number(stock)}</p>}
+                  </div>
+                </button>
+                <div className="flex items-center gap-2 border-t border-border p-2">
+                  <button
+                    className={`flex h-9 flex-1 items-center justify-center rounded-lg text-lg font-bold ${selected ? "bg-primary-light text-primary" : "bg-background text-ink"}`}
+                    onClick={() => changeQty(p.id, -1)}
+                    aria-label="Decrease"
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center font-semibold">{qty}</span>
+                  <button
+                    className={`flex h-9 flex-1 items-center justify-center rounded-lg text-lg font-bold ${selected ? "bg-primary text-white" : "bg-background text-ink"}`}
+                    onClick={() => changeQty(p.id, 1)}
+                    aria-label="Increase"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            );
+          })}
           {filteredProducts.length === 0 && <p className="text-muted">No products match.</p>}
         </div>
 
         <div className="card overflow-x-auto p-0">
-          <h2 className="p-4 pb-0 font-semibold">Today's Bills</h2>
+          <h2 className="flex items-center gap-2 p-4 pb-0 font-semibold">🕐 Today's Bills</h2>
           <table className="table-base mt-2">
             <thead>
               <tr>
@@ -181,6 +248,13 @@ export function Billing() {
               </tr>
             </thead>
             <tbody>
+              {(todaysBills?.length ?? 0) === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-muted">
+                    No bills generated today. Completed bills will appear here.
+                  </td>
+                </tr>
+              )}
               {todaysBills?.slice(0, 8).map((s) => (
                 <tr key={s.id}>
                   <td className="font-medium">{s.billNo}</td>
@@ -195,62 +269,101 @@ export function Billing() {
       </div>
 
       <div className="card sticky top-20 h-fit space-y-3">
-        <h2 className="font-semibold">Current Bill</h2>
-        {cart.length === 0 && <p className="text-sm text-muted">No items yet.</p>}
-        <div className="space-y-2">
-          {cart.map((line) => (
-            <div key={line.productId} className="rounded-lg border border-border p-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{line.name}</span>
-                <button className="text-xs text-danger" onClick={() => removeLine(line.productId)}>
-                  Remove
-                </button>
-              </div>
-              <div className="mt-1 grid grid-cols-3 gap-1.5">
-                <input
-                  className="input !py-1 text-xs"
-                  type="number"
-                  min={0}
-                  step="0.001"
-                  value={line.quantity}
-                  onChange={(e) => updateLine(line.productId, { quantity: Number(e.target.value) })}
-                  aria-label="Quantity"
-                />
-                <input
-                  className="input !py-1 text-xs"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={line.rate}
-                  onChange={(e) => updateLine(line.productId, { rate: Number(e.target.value) })}
-                  aria-label="Rate"
-                />
-                <input
-                  className="input !py-1 text-xs"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={line.discount}
-                  onChange={(e) => updateLine(line.productId, { discount: Number(e.target.value) })}
-                  aria-label="Discount"
-                  title="Discount"
-                />
-              </div>
-              <p className="mt-1 text-right text-sm font-semibold">{formatCurrency(line.quantity * line.rate - line.discount)}</p>
-            </div>
-          ))}
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold">Current Bill</h2>
+          {cart.length > 0 && (
+            <button className="flex items-center gap-1 text-sm font-medium text-danger" onClick={() => setCart([])}>
+              🗑 Clear All
+            </button>
+          )}
         </div>
 
+        {cart.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted">No items yet. Tap a product to add it.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-muted">
+                  <th className="pb-1 text-left font-semibold">Item</th>
+                  <th className="pb-1 text-right font-semibold">Rate</th>
+                  <th className="pb-1 text-center font-semibold">Qty</th>
+                  <th className="pb-1 text-right font-semibold">Amount</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {cart.map((line) => {
+                  const product = products?.find((p) => p.id === line.productId);
+                  return (
+                    <tr key={line.productId} className="border-t border-border">
+                      <td className="py-2">
+                        <div className="flex items-center gap-2">
+                          {product?.imageUrl ? (
+                            <img src={imageSrc(product.imageUrl)} alt="" className="h-8 w-8 rounded-md object-cover" />
+                          ) : (
+                            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-background">🍽</span>
+                          )}
+                          <span className="font-medium leading-tight">{line.name}</span>
+                        </div>
+                      </td>
+                      <td className="text-right">{Number(line.rate).toFixed(2)}</td>
+                      <td>
+                        <div className="flex items-center justify-center gap-1">
+                          <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-primary" onClick={() => changeQty(line.productId, -1)}>
+                            −
+                          </button>
+                          <span className="w-6 text-center font-semibold">{line.quantity}</span>
+                          <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-primary" onClick={() => changeQty(line.productId, 1)}>
+                            +
+                          </button>
+                        </div>
+                      </td>
+                      <td className="text-right font-semibold">{(line.quantity * line.rate - line.discount).toFixed(2)}</td>
+                      <td className="pl-1 text-right">
+                        <button className="text-muted hover:text-danger" onClick={() => removeLine(line.productId)} aria-label="Remove">
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <div className="space-y-1 border-t border-border pt-3 text-sm">
-          <div className="flex justify-between">
+          <div className="flex justify-between text-muted">
+            <span>Items</span>
+            <span className="font-medium text-ink">{Number(totalItems.toFixed(3))}</span>
+          </div>
+          <div className="flex justify-between text-muted">
+            <span>Products</span>
+            <span className="font-medium text-ink">{cart.length}</span>
+          </div>
+          <div className="flex justify-between pt-1">
             <span>Subtotal</span>
             <span>{formatCurrency(subTotal)}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex items-center justify-between">
             <span>Discount</span>
-            <span>-{formatCurrency(discountTotal)}</span>
+            <div className="flex items-center gap-2">
+              <input
+                className="input h-8 w-24 text-right"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.01"
+                value={cart.length ? cart[0].discount : 0}
+                onChange={(e) => cart.length && updateLine(cart[0].productId, { discount: Number(e.target.value) })}
+                disabled={cart.length === 0}
+                aria-label="Discount"
+              />
+              <span className="text-muted">-{formatCurrency(discountTotal)}</span>
+            </div>
           </div>
-          <div className="flex justify-between text-base font-bold">
+          <div className="flex justify-between border-t border-border pt-2 text-lg font-bold">
             <span>Total</span>
             <span className="text-primary">{formatCurrency(grandTotal)}</span>
           </div>
@@ -262,7 +375,7 @@ export function Billing() {
             {(["CASH", "UPI", "CREDIT"] as PaymentMode[]).map((mode) => (
               <button
                 key={mode}
-                className={paymentMode === mode ? "btn-primary flex-1 !py-1.5 text-xs" : "btn-secondary flex-1 !py-1.5 text-xs"}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${paymentMode === mode ? "bg-primary text-white" : "border border-border bg-card hover:bg-background"}`}
                 onClick={() => setPaymentMode(mode)}
               >
                 {mode}
@@ -278,8 +391,8 @@ export function Billing() {
           </div>
         )}
 
-        <button className="btn-primary w-full" onClick={generateBill} disabled={submitting || cart.length === 0}>
-          {submitting ? "Generating…" : "Generate Bill"}
+        <button className="btn-primary w-full !py-3 text-base" onClick={generateBill} disabled={submitting || cart.length === 0}>
+          {submitting ? "Generating…" : "🧾 Generate Bill"}
         </button>
       </div>
 

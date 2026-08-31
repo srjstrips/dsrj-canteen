@@ -73,6 +73,84 @@ export async function buildIssueTemplate(): Promise<Buffer> {
   return Buffer.from(buffer);
 }
 
+interface CanteenTemplateProduct {
+  id: string;
+  name: string;
+  unitSymbol: string;
+  canteenQty: string | null;
+}
+
+async function canteenProductsForTemplate(): Promise<CanteenTemplateProduct[]> {
+  return query<CanteenTemplateProduct>(
+    pool,
+    `SELECT p.id, p.name, u.symbol AS "unitSymbol", b.quantity AS "canteenQty"
+     FROM products p
+     JOIN units u ON u.id = p.unit_id
+     LEFT JOIN canteen_stock_balances b ON b.product_id = p.id
+     WHERE p.active = TRUE
+     ORDER BY p.name ASC`
+  );
+}
+
+/** Stock Return template — pre-filled with each product's CURRENT canteen
+ * balance so the store user can see how much is available to return, then
+ * fill only the Return Quantity. */
+export async function buildReturnTemplate(): Promise<Buffer> {
+  const products = await canteenProductsForTemplate();
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("Stock Return");
+
+  sheet.columns = [
+    { header: "Product ID (do not edit)", key: "id", width: 38 },
+    { header: "Product Name", key: "name", width: 28 },
+    { header: "Unit", key: "unit", width: 10 },
+    { header: "Canteen Qty (available)", key: "canteenQty", width: 22 },
+    { header: "Return Quantity", key: "quantity", width: 16 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+  sheet.getColumn("id").protection = { locked: true };
+
+  for (const p of products) {
+    sheet.addRow({ id: p.id, name: p.name, unit: p.unitSymbol, canteenQty: p.canteenQty ? Number(p.canteenQty) : 0, quantity: null });
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+export interface ParsedReturnRow {
+  row: number;
+  productId: string;
+  quantity: number;
+}
+
+export async function parseReturnWorkbook(buffer: Buffer): Promise<{ rows: ParsedReturnRow[]; errors: RowError[] }> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+  const sheet = wb.worksheets[0];
+  if (!sheet) throw ApiError.badRequest("The uploaded file has no worksheet");
+  const validIds = new Set((await canteenProductsForTemplate()).map((p) => p.id));
+
+  const rows: ParsedReturnRow[] = [];
+  const errors: RowError[] = [];
+
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const productId = cellText(row.getCell(1).value);
+    const quantity = cellNumber(row.getCell(5).value);
+
+    if (!productId && quantity === null) return;
+    if (!productId) return errors.push({ row: rowNumber, message: "Missing Product ID — do not delete or reorder that column" });
+    if (!validIds.has(productId)) return errors.push({ row: rowNumber, message: "Unknown or inactive Product ID" });
+    if (quantity === null) return;
+    if (quantity <= 0) return errors.push({ row: rowNumber, message: "Return Quantity must be greater than 0" });
+
+    rows.push({ row: rowNumber, productId, quantity });
+  });
+
+  return { rows, errors };
+}
+
 export interface ParsedInwardRow {
   row: number;
   productId: string;

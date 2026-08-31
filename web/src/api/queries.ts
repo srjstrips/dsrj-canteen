@@ -9,6 +9,23 @@ export function useProducts(activeOnly = true) {
   });
 }
 
+/** Sellable products for POS / OT orders: only those with a price (raw
+ * materials, which have no price, are excluded). */
+export function useSellableProducts() {
+  return useQuery({
+    queryKey: ["products", "sellable"],
+    queryFn: async () => (await api.get<Product[]>("/masters/products", { params: { active: "true", sellable: "true" } })).data,
+  });
+}
+
+/** Food items only: priced and non-stock (prepared food). */
+export function useFoodItems() {
+  return useQuery({
+    queryKey: ["products", "food"],
+    queryFn: async () => (await api.get<Product[]>("/masters/products", { params: { foodItem: "true" } })).data,
+  });
+}
+
 export function useCategories() {
   return useQuery({
     queryKey: ["categories"],

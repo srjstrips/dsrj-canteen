@@ -74,7 +74,9 @@ export function CategoriesUnits() {
           </form>
           <table className="table-base">
             <tbody>
-              {categories?.map((c) => (
+              {categories
+                ?.filter((c) => !c.isFood)
+                .map((c) => (
                 <tr key={c.id}>
                   <td>{c.name}</td>
                   <td>{c.active ? <span className="badge-success">Active</span> : <span className="badge-danger">Inactive</span>}</td>

@@ -21,12 +21,14 @@ import { StoreDashboard } from "./pages/store/StoreDashboard";
 import { StockInward } from "./pages/store/StockInward";
 import { StoreStock } from "./pages/store/StoreStock";
 import { StockIssue } from "./pages/store/StockIssue";
+import { StoreReturn } from "./pages/store/StoreReturn";
 import { StoreLedger } from "./pages/store/StoreLedger";
 import { StoreReports } from "./pages/store/StoreReports";
 import { CanteenDashboard } from "./pages/canteen/CanteenDashboard";
 import { ReceivedStock } from "./pages/canteen/ReceivedStock";
 import { CanteenStock } from "./pages/canteen/CanteenStock";
 import { Billing } from "./pages/canteen/Billing";
+import { FoodItems } from "./pages/canteen/FoodItems";
 import { DailySales } from "./pages/canteen/DailySales";
 import { Consumption } from "./pages/canteen/Consumption";
 import { Wastage } from "./pages/canteen/Wastage";
@@ -80,6 +82,7 @@ export function App() {
             <Route path="/store/dashboard" element={<StoreDashboard />} />
             <Route path="/store/stock-inward" element={<StockInward />} />
             <Route path="/store/stock-issue" element={<StockIssue />} />
+            <Route path="/store/stock-return" element={<StoreReturn />} />
             <Route path="/store/ledger" element={<StoreLedger />} />
             <Route path="/store/reports" element={<StoreReports />} />
           </Route>
@@ -92,6 +95,7 @@ export function App() {
             <Route path="/canteen/received-stock" element={<ReceivedStock />} />
             <Route path="/canteen/stock" element={<CanteenStock />} />
             <Route path="/canteen/billing" element={<Billing />} />
+            <Route path="/canteen/food-items" element={<FoodItems />} />
             <Route path="/canteen/daily-sales" element={<DailySales />} />
             <Route path="/canteen/consumption" element={<Consumption />} />
             <Route path="/canteen/wastage" element={<Wastage />} />

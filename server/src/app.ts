@@ -1,4 +1,5 @@
 import "express-async-errors";
+import path from "path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -19,10 +20,14 @@ import { importsRouter } from "./modules/imports/imports.routes";
 export function createApp() {
   const app = express();
 
-  app.use(helmet());
+  // Allow the web app (different origin in dev) to load uploaded images.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
   app.use(express.json());
   if (env.nodeEnv !== "test") app.use(morgan("dev"));
+
+  // Uploaded product images (served from server/uploads).
+  app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

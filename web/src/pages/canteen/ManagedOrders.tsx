@@ -142,7 +142,7 @@ export function ManagedOrders() {
           {extras.map((r, idx) => (
             <div key={idx} className="flex items-end gap-2">
               <div className="flex-1">
-                <ProductSelect value={r.productId} onChange={(v) => setExtras(extras.map((x, i) => (i === idx ? { ...x, productId: v } : x)))} />
+                <ProductSelect sellableOnly value={r.productId} onChange={(v) => setExtras(extras.map((x, i) => (i === idx ? { ...x, productId: v } : x)))} />
               </div>
               <div className="w-24">
                 <input

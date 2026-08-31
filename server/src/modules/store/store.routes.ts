@@ -8,8 +8,17 @@ import { validateBody } from "../../middleware/validate";
 import { ApiError } from "../../utils/ApiError";
 import { D } from "../../utils/money";
 import { Role } from "../../types/domain";
-import { INWARD_SELECT, ISSUE_SELECT, getStoreLedger, getStoreStockSummary, issueStockToCanteen, recordStockInward } from "./store.service";
-import { buildInwardTemplate, buildIssueTemplate, parseInwardWorkbook, parseIssueWorkbook } from "./bulkImport.service";
+import {
+  INWARD_SELECT,
+  ISSUE_SELECT,
+  RETURN_SELECT,
+  getStoreLedger,
+  getStoreStockSummary,
+  issueStockToCanteen,
+  recordReturnFromCanteen,
+  recordStockInward,
+} from "./store.service";
+import { buildInwardTemplate, buildIssueTemplate, buildReturnTemplate, parseInwardWorkbook, parseIssueWorkbook, parseReturnWorkbook } from "./bulkImport.service";
 
 export const storeRouter = Router();
 storeRouter.use(requireAuth);
@@ -176,6 +185,81 @@ storeRouter.get(
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const issues = await query(pool, `${ISSUE_SELECT} ${where} ORDER BY si.issue_date DESC`, params);
     res.json(issues);
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Stock Return (Canteen -> Store) — reverse of Stock Issue
+// ---------------------------------------------------------------------------
+
+const returnSchema = z.object({
+  returnDate: z.coerce.date().optional(),
+  notes: z.string().optional(),
+  items: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().positive("Quantity must be greater than 0") })).min(1),
+});
+
+storeRouter.post(
+  "/stock-return",
+  requireRole(Role.STORE),
+  validateBody(returnSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof returnSchema>;
+    const result = await recordReturnFromCanteen({ ...body, createdById: req.user!.sub });
+    res.status(201).json(result);
+  })
+);
+
+storeRouter.get(
+  "/stock-return/template",
+  requireRole(Role.STORE),
+  asyncHandler(async (_req, res) => {
+    const buffer = await buildReturnTemplate();
+    res.setHeader("Content-Type", XLSX_CONTENT_TYPE);
+    res.setHeader("Content-Disposition", "attachment; filename=stock-return-template.xlsx");
+    res.send(buffer);
+  })
+);
+
+const importReturnSchema = z.object({ returnDate: z.coerce.date().optional() });
+
+storeRouter.post(
+  "/stock-return/import",
+  requireRole(Role.STORE),
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw ApiError.badRequest("No file uploaded");
+    const body = importReturnSchema.parse({ returnDate: req.body.returnDate || undefined });
+
+    const { rows, errors } = await parseReturnWorkbook(req.file.buffer);
+    if (errors.length > 0) return res.status(400).json({ error: "The uploaded file has errors", rowErrors: errors });
+    if (rows.length === 0) throw ApiError.badRequest("No rows with a quantity were found in the uploaded file");
+
+    const result = await recordReturnFromCanteen({
+      returnDate: body.returnDate,
+      items: rows.map((r) => ({ productId: r.productId, quantity: r.quantity })),
+      createdById: req.user!.sub,
+    });
+    res.status(201).json({ importedRows: rows.length, return: result });
+  })
+);
+
+storeRouter.get(
+  "/stock-return",
+  asyncHandler(async (req, res) => {
+    const { from, to } = req.query as Record<string, string | undefined>;
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (from) {
+      params.push(from);
+      conditions.push(`sr.return_date >= $${params.length}`);
+    }
+    if (to) {
+      params.push(to);
+      conditions.push(`sr.return_date <= $${params.length}`);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const returns = await query(pool, `${RETURN_SELECT} ${where} ORDER BY sr.return_date DESC`, params);
+    res.json(returns);
   })
 );
 

@@ -53,6 +53,7 @@ export interface Category {
   id: string;
   name: string;
   active: boolean;
+  isFood?: boolean;
 }
 
 export interface Unit {
@@ -84,6 +85,7 @@ export interface Product {
   reorderLevel: string;
   trackCanteenStock: boolean;
   sellPrice?: string | null;
+  imageUrl?: string | null;
   active: boolean;
 }
 

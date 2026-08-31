@@ -267,6 +267,158 @@ export async function issueStockToCanteen(input: IssueStockInput) {
   });
 }
 
+export interface ReturnItemInput {
+  productId: string;
+  quantity: number;
+}
+
+export interface ReturnStockInput {
+  items: ReturnItemInput[];
+  returnDate?: Date;
+  notes?: string;
+  createdById: string;
+}
+
+export const RETURN_SELECT = `
+  SELECT sr.*,
+    jsonb_build_object('id', u.id, 'name', u.name) AS "createdBy",
+    COALESCE(items.items, '[]'::jsonb) AS items
+  FROM stock_returns sr
+  JOIN users u ON u.id = sr.created_by_id
+  LEFT JOIN LATERAL (
+    SELECT jsonb_agg(jsonb_build_object(
+      'id', sri.id, 'quantity', sri.quantity, 'returnRate', sri.return_rate, 'returnValue', sri.return_value,
+      'canteenBalanceAfter', sri.canteen_balance_after, 'storeBalanceAfter', sri.store_balance_after,
+      'product', jsonb_build_object('id', p.id, 'name', p.name, 'unit', jsonb_build_object('id', pu.id, 'name', pu.name, 'symbol', pu.symbol))
+    ) ORDER BY sri.created_at) AS items
+    FROM stock_return_items sri
+    JOIN products p ON p.id = sri.product_id
+    JOIN units pu ON pu.id = p.unit_id
+    WHERE sri.stock_return_id = sr.id
+  ) items ON TRUE
+`;
+
+/**
+ * Returns unused stock from Canteen back to Store — the reverse of a Stock
+ * Issue. Canteen stock decreases (valued at the canteen's average rate) and,
+ * in the same transaction, Store stock increases at that same rate via its
+ * weighted-average, so the two sides never disagree. Capped at what the
+ * canteen currently holds — you can't return stock that isn't there.
+ */
+export async function recordReturnFromCanteen(input: ReturnStockInput) {
+  if (input.items.length === 0) throw ApiError.badRequest("At least one line item is required");
+
+  return withTransaction(async (client) => {
+    const returnDate = input.returnDate ?? new Date();
+    const returnNo = generateDocNo("RET", returnDate);
+
+    const ret = await queryOne<{ id: string }>(
+      client,
+      `INSERT INTO stock_returns (return_no, return_date, notes, created_by_id, total_value) VALUES ($1, $2, $3, $4, 0) RETURNING id`,
+      [returnNo, returnDate, input.notes ?? null, input.createdById]
+    );
+    const returnId = ret!.id;
+
+    let totalValue = D(0);
+
+    for (const item of input.items) {
+      if (item.quantity <= 0) throw ApiError.badRequest("Return quantity must be greater than 0");
+
+      const product = await queryOne(client, "SELECT id FROM products WHERE id = $1 FOR UPDATE", [item.productId]);
+      if (!product) throw ApiError.notFound(`Product not found: ${item.productId}`);
+
+      // --- Canteen side: issue (out) the returned quantity at canteen avg rate ---
+      const cBalance = await queryOne<{ quantity: string; stockValue: string; avgRate: string }>(
+        client,
+        "SELECT quantity, stock_value, avg_rate FROM canteen_stock_balances WHERE product_id = $1",
+        [item.productId]
+      );
+      const cOpeningQty = cBalance?.quantity ?? D(0);
+      if (D(item.quantity).gt(cOpeningQty)) {
+        throw ApiError.badRequest(`Cannot return more than the canteen holds. Canteen quantity: ${D(cOpeningQty).toString()}.`);
+      }
+      const cOpeningValue = cBalance?.stockValue ?? D(0);
+      const returnRate = cBalance?.avgRate ?? D(0);
+
+      const canteenOut = applyIssue(cOpeningQty, cOpeningValue, returnRate, item.quantity);
+      const returnValue = canteenOut.issueValue;
+
+      await query(client, "UPDATE canteen_stock_balances SET quantity = $2, stock_value = $3, updated_at = now() WHERE product_id = $1", [
+        item.productId,
+        canteenOut.newQty.toString(),
+        canteenOut.newValue.toString(),
+      ]);
+
+      // --- Store side: receive (inward) the returned quantity at that rate ---
+      const sBalance = await queryOne<{ quantity: string; stockValue: string }>(
+        client,
+        "SELECT quantity, stock_value FROM store_stock_balances WHERE product_id = $1",
+        [item.productId]
+      );
+      const sOpeningQty = sBalance?.quantity ?? D(0);
+      const sOpeningValue = sBalance?.stockValue ?? D(0);
+      const storeIn = applyInward(sOpeningQty, sOpeningValue, item.quantity, returnRate);
+
+      await query(
+        client,
+        `INSERT INTO store_stock_balances (product_id, quantity, avg_rate, stock_value, updated_at)
+         VALUES ($1, $2, $3, $4, now())
+         ON CONFLICT (product_id) DO UPDATE SET quantity = $2, avg_rate = $3, stock_value = $4, updated_at = now()`,
+        [item.productId, storeIn.newQty.toString(), storeIn.newAvgRate.toString(), storeIn.newValue.toString()]
+      );
+
+      const returnItem = await queryOne<{ id: string }>(
+        client,
+        `INSERT INTO stock_return_items (stock_return_id, product_id, quantity, return_rate, return_value, canteen_balance_after, store_balance_after)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [returnId, item.productId, item.quantity, returnRate.toString(), returnValue.toString(), canteenOut.newQty.toString(), storeIn.newQty.toString()]
+      );
+
+      // Ledgers: canteen RETURN (out), store RETURN (in).
+      await query(
+        client,
+        `INSERT INTO canteen_stock_ledger (product_id, txn_date, txn_type, ref_id, in_qty, out_qty, rate, balance_qty, balance_value, remarks)
+         VALUES ($1, $2, $3, $4, 0, $5, $6, $7, $8, $9)`,
+        [
+          item.productId,
+          returnDate,
+          CanteenLedgerTxnType.RETURN,
+          returnItem!.id,
+          item.quantity,
+          returnRate.toString(),
+          canteenOut.newQty.toString(),
+          canteenOut.newValue.toString(),
+          `Returned to Store ${returnNo}`,
+        ]
+      );
+      await query(
+        client,
+        `INSERT INTO store_stock_ledger (product_id, txn_date, txn_type, ref_id, inward_qty, issue_qty, rate, balance_qty, balance_value, remarks)
+         VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $8, $9)`,
+        [
+          item.productId,
+          returnDate,
+          StoreLedgerTxnType.RETURN,
+          returnId,
+          item.quantity,
+          returnRate.toString(),
+          storeIn.newQty.toString(),
+          storeIn.newValue.toString(),
+          `Returned from Canteen ${returnNo}`,
+        ]
+      );
+
+      totalValue = totalValue.add(returnValue);
+    }
+
+    await query(client, "UPDATE stock_returns SET total_value = $2 WHERE id = $1", [returnId, totalValue.toString()]);
+
+    const updated = await queryOne(client, `${RETURN_SELECT} WHERE sr.id = $1`, [returnId]);
+    await writeAudit(client, { entity: "StockReturn", entityId: returnId, action: "CREATE", actorId: input.createdById, after: updated });
+    return updated;
+  });
+}
+
 export interface StoreStockRow {
   productId: string;
   productName: string;

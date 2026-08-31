@@ -28,8 +28,8 @@ beforeAll(async () => {
   const supplier = await queryOne<{ id: string }>(pool, "INSERT INTO suppliers (name) VALUES ($1) RETURNING id", ["Test Supplier"]);
   const storeUser = await queryOne<{ id: string }>(
     pool,
-    "INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id",
-    ["Store Test User", "store-test@dsrj.local", await hashPassword("x"), Role.STORE]
+    "INSERT INTO users (name, username, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id",
+    ["Store Test User", "store-test", await hashPassword("x"), Role.STORE]
   );
   const product = await queryOne<{ id: string }>(
     pool,

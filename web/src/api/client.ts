@@ -2,6 +2,16 @@ import axios from "axios";
 
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
+// Origin serving uploaded files (API_URL without the trailing /api).
+export const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+
+/** Resolves a stored image path (e.g. /uploads/products/x.jpg) to a full URL. */
+export function imageSrc(imageUrl?: string | null): string | undefined {
+  if (!imageUrl) return undefined;
+  if (/^https?:\/\//.test(imageUrl)) return imageUrl;
+  return `${API_ORIGIN}${imageUrl}`;
+}
+
 export const api = axios.create({ baseURL: API_URL });
 
 const TOKEN_KEY = "dsrj_token";

@@ -8,7 +8,7 @@ export type Role = (typeof Role)[keyof typeof Role];
 export const PaymentMode = { CASH: "CASH", UPI: "UPI", CREDIT: "CREDIT" } as const;
 export type PaymentMode = (typeof PaymentMode)[keyof typeof PaymentMode];
 
-export const StoreLedgerTxnType = { OPENING: "OPENING", INWARD: "INWARD", ISSUE: "ISSUE", ADJUSTMENT: "ADJUSTMENT" } as const;
+export const StoreLedgerTxnType = { OPENING: "OPENING", INWARD: "INWARD", ISSUE: "ISSUE", RETURN: "RETURN", ADJUSTMENT: "ADJUSTMENT" } as const;
 export type StoreLedgerTxnType = (typeof StoreLedgerTxnType)[keyof typeof StoreLedgerTxnType];
 
 export const CanteenLedgerTxnType = {
@@ -16,6 +16,7 @@ export const CanteenLedgerTxnType = {
   SALE: "SALE",
   CONSUMPTION: "CONSUMPTION",
   WASTAGE: "WASTAGE",
+  RETURN: "RETURN",
   ADJUSTMENT: "ADJUSTMENT",
 } as const;
 export type CanteenLedgerTxnType = (typeof CanteenLedgerTxnType)[keyof typeof CanteenLedgerTxnType];

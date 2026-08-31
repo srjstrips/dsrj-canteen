@@ -26,6 +26,7 @@ export const navSections: NavSection[] = [
       { label: "Stock Inward", to: "/store/stock-inward", roles: ["STORE"] },
       { label: "Store Stock", to: "/store/stock", roles: ["STORE", "CANTEEN"] },
       { label: "Stock Issue to Canteen", to: "/store/stock-issue", roles: ["STORE"] },
+      { label: "Return Stock from Canteen", to: "/store/stock-return", roles: ["STORE"] },
       { label: "Stock Ledger", to: "/store/ledger", roles: ["STORE"] },
       { label: "Store Reports", to: "/store/reports", roles: ["STORE"] },
     ],
@@ -35,6 +36,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Received Stock", to: "/canteen/received-stock", roles: ["CANTEEN"] },
       { label: "Canteen Stock", to: "/canteen/stock", roles: ["CANTEEN"] },
+      { label: "Food Items (Menu)", to: "/canteen/food-items", roles: ["CANTEEN"] },
       { label: "Billing / POS", to: "/canteen/billing", roles: ["CANTEEN"] },
       { label: "OT / Guest / Contractor Orders", to: "/canteen/managed-orders", roles: ["CANTEEN"] },
       { label: "Daily Sales", to: "/canteen/daily-sales", roles: ["CANTEEN"] },

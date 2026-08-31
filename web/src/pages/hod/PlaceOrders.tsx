@@ -199,7 +199,7 @@ export function PlaceOrders() {
           {items.map((it, idx) => (
             <div key={idx} className="flex items-end gap-2">
               <div className="flex-1">
-                <ProductSelect value={it.productId} onChange={(v) => setItems(items.map((r, i) => (i === idx ? { ...r, productId: v } : r)))} />
+                <ProductSelect sellableOnly value={it.productId} onChange={(v) => setItems(items.map((r, i) => (i === idx ? { ...r, productId: v } : r)))} />
               </div>
               <div className="w-28">
                 <input
@@ -335,6 +335,7 @@ export function PlaceOrders() {
               <div key={idx} className="flex items-end gap-2">
                 <div className="flex-1">
                   <ProductSelect
+                    sellableOnly
                     value={it.productId}
                     onChange={(v) => setEditForm({ ...editForm, items: editForm.items.map((r, i) => (i === idx ? { ...r, productId: v } : r)) })}
                   />
