@@ -12,7 +12,7 @@ import { Role } from "../../types/domain";
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireRole(Role.ADMIN));
 
-const USER_COLUMNS = "id, name, username, role, active, created_at, updated_at";
+const USER_COLUMNS = "id, name, username, role, active, can_edit_old, created_at, updated_at";
 
 interface UserRow {
   id: string;
@@ -20,6 +20,7 @@ interface UserRow {
   username: string;
   role: Role;
   active: boolean;
+  canEditOld: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,6 +41,7 @@ const createSchema = z.object({
     .regex(/^[a-zA-Z0-9._-]+$/, "Username may only contain letters, numbers, dots, underscores and hyphens"),
   password: z.string().min(8),
   role: z.nativeEnum(Role),
+  canEditOld: z.boolean().optional(),
 });
 
 usersRouter.post(
@@ -50,8 +52,8 @@ usersRouter.post(
     const passwordHash = await hashPassword(body.password);
     const user = await queryOne<UserRow>(
       pool,
-      `INSERT INTO users (name, username, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING ${USER_COLUMNS}`,
-      [body.name, body.username.toLowerCase(), passwordHash, body.role]
+      `INSERT INTO users (name, username, password_hash, role, can_edit_old) VALUES ($1, $2, $3, $4, COALESCE($5, FALSE)) RETURNING ${USER_COLUMNS}`,
+      [body.name, body.username.toLowerCase(), passwordHash, body.role, body.canEditOld ?? null]
     );
     await writeAudit(pool, { entity: "User", entityId: user!.id, action: "CREATE", actorId: req.user!.sub, after: user });
     res.status(201).json(user);
@@ -63,6 +65,7 @@ const updateSchema = z.object({
   role: z.nativeEnum(Role).optional(),
   active: z.boolean().optional(),
   password: z.string().min(8).optional(),
+  canEditOld: z.boolean().optional(),
 });
 
 usersRouter.patch(
@@ -82,10 +85,11 @@ usersRouter.patch(
          role = COALESCE($3, role),
          active = COALESCE($4, active),
          password_hash = COALESCE($5, password_hash),
+         can_edit_old = COALESCE($6, can_edit_old),
          updated_at = now()
        WHERE id = $1
        RETURNING ${USER_COLUMNS}`,
-      [req.params.id, body.name ?? null, body.role ?? null, body.active ?? null, passwordHash ?? null]
+      [req.params.id, body.name ?? null, body.role ?? null, body.active ?? null, passwordHash ?? null, body.canEditOld ?? null]
     );
     await writeAudit(pool, { entity: "User", entityId: user!.id, action: "UPDATE", actorId: req.user!.sub, before, after: user });
     res.json(user);

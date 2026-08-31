@@ -18,6 +18,7 @@ interface UserRow {
   passwordHash: string;
   role: Role;
   active: boolean;
+  canEditOld: boolean;
 }
 
 const loginSchema = z.object({
@@ -39,7 +40,7 @@ authRouter.post(
     const token = signToken({ sub: user.id, role: user.role, name: user.name, username: user.username });
     res.json({
       token,
-      user: { id: user.id, name: user.name, username: user.username, role: user.role },
+      user: { id: user.id, name: user.name, username: user.username, role: user.role, canEditOld: user.canEditOld },
     });
   })
 );
@@ -50,6 +51,6 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const user = await queryOne<UserRow>(pool, "SELECT * FROM users WHERE id = $1", [req.user!.sub]);
     if (!user) throw ApiError.notFound("User not found");
-    res.json({ id: user.id, name: user.name, username: user.username, role: user.role });
+    res.json({ id: user.id, name: user.name, username: user.username, role: user.role, canEditOld: user.canEditOld });
   })
 );

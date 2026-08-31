@@ -47,6 +47,7 @@ export interface AuthUser {
   name: string;
   username: string;
   role: Role;
+  canEditOld?: boolean;
 }
 
 export interface Category {

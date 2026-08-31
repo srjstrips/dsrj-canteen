@@ -34,6 +34,12 @@ export function Users() {
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
 
+  const toggleEditOld = useMutation({
+    mutationFn: async ({ id, canEditOld }: { id: string; canEditOld: boolean }) => api.patch(`/admin/users/${id}`, { canEditOld }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
   function submit(e: FormEvent) {
     e.preventDefault();
     createMutation.mutate();
@@ -59,6 +65,7 @@ export function Users() {
               <th>Username</th>
               <th>Role</th>
               <th>Status</th>
+              <th>Edit old entries</th>
               <th>Created</th>
               <th></th>
             </tr>
@@ -66,7 +73,7 @@ export function Users() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={6}>Loading…</td>
+                <td colSpan={7}>Loading…</td>
               </tr>
             )}
             {users?.map((u) => (
@@ -75,6 +82,19 @@ export function Users() {
                 <td>{u.username}</td>
                 <td>{u.role}</td>
                 <td>{u.active ? <span className="badge-success">Active</span> : <span className="badge-danger">Inactive</span>}</td>
+                <td>
+                  {u.role === "ADMIN" ? (
+                    <span className="text-xs text-muted">Always</span>
+                  ) : (
+                    <button
+                      className={`!px-2 !py-1 text-xs ${u.canEditOld ? "badge-success" : "btn-secondary"}`}
+                      onClick={() => toggleEditOld.mutate({ id: u.id, canEditOld: !u.canEditOld })}
+                      title="Allow editing entries older than 24 hours"
+                    >
+                      {u.canEditOld ? "Allowed ✓" : "24h only"}
+                    </button>
+                  )}
+                </td>
                 <td>{formatDate(u.createdAt)}</td>
                 <td>
                   <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => toggleActive.mutate({ id: u.id, active: !u.active })}>
