@@ -21,6 +21,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Compiled app + raw SQL migrations (read at runtime by the migrate script).
 COPY --from=build /app/server/dist ./server/dist
 COPY server/db ./server/db
+# Pre-create the uploads dir owned by the non-root user so a fresh named volume
+# inherits the correct ownership (the API writes product images here).
+RUN mkdir -p /app/server/uploads/products && chown -R node:node /app/server/uploads
 # Run as the built-in non-root user.
 USER node
 WORKDIR /app/server
