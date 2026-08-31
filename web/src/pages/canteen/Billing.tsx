@@ -190,7 +190,7 @@ export function Billing() {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredProducts.map((p) => {
             const qty = qtyInCart(p.id);
             const selected = qty > 0;
@@ -198,32 +198,33 @@ export function Billing() {
             return (
               <div
                 key={p.id}
-                className={`overflow-hidden rounded-xl border bg-card transition ${selected ? "border-primary shadow-md ring-1 ring-primary" : "border-border hover:border-primary hover:shadow-md"}`}
+                className={`overflow-hidden rounded-lg border bg-card transition ${selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary hover:shadow"}`}
               >
                 <button className="block w-full text-left" onClick={() => addToCart(p.id)}>
                   {p.imageUrl ? (
-                    <img src={imageSrc(p.imageUrl)} alt="" className="h-28 w-full object-cover" />
+                    <img src={imageSrc(p.imageUrl)} alt="" className="h-20 w-full bg-background object-contain" />
                   ) : (
-                    <div className="flex h-28 w-full items-center justify-center bg-background text-3xl text-muted">🍽</div>
+                    <div className="flex h-20 w-full items-center justify-center bg-background text-2xl text-muted">🍽</div>
                   )}
-                  <div className="p-3">
-                    <p className="font-semibold leading-tight">{p.name}</p>
-                    <p className="text-xs text-muted">{p.category.name}</p>
-                    <p className="mt-1 font-bold text-primary">{p.sellPrice ? formatCurrency(p.sellPrice) : "Set price"}</p>
-                    {stock !== undefined && <p className="text-xs font-medium text-success">Stock: {Number(stock)}</p>}
+                  <div className="p-2">
+                    <p className="truncate text-sm font-semibold leading-tight" title={p.name}>
+                      {p.name}
+                    </p>
+                    <p className="text-[11px] font-bold text-primary">{p.sellPrice ? formatCurrency(p.sellPrice) : "Set price"}</p>
+                    {stock !== undefined && <p className="text-[11px] font-medium text-success">Stock: {Number(stock)}</p>}
                   </div>
                 </button>
-                <div className="flex items-center gap-2 border-t border-border p-2">
+                <div className="flex items-center gap-1 border-t border-border p-1">
                   <button
-                    className={`flex h-9 flex-1 items-center justify-center rounded-lg text-lg font-bold ${selected ? "bg-primary-light text-primary" : "bg-background text-ink"}`}
+                    className={`flex h-7 flex-1 items-center justify-center rounded text-base font-bold ${selected ? "bg-primary-light text-primary" : "bg-background text-ink"}`}
                     onClick={() => changeQty(p.id, -1)}
                     aria-label="Decrease"
                   >
                     −
                   </button>
-                  <span className="w-8 text-center font-semibold">{qty}</span>
+                  <span className="w-6 text-center text-sm font-semibold">{qty}</span>
                   <button
-                    className={`flex h-9 flex-1 items-center justify-center rounded-lg text-lg font-bold ${selected ? "bg-primary text-white" : "bg-background text-ink"}`}
+                    className={`flex h-7 flex-1 items-center justify-center rounded text-base font-bold ${selected ? "bg-primary text-white" : "bg-background text-ink"}`}
                     onClick={() => changeQty(p.id, 1)}
                     aria-label="Increase"
                   >
