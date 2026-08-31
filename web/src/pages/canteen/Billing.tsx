@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import axios from "axios";
@@ -403,53 +403,73 @@ export function Billing() {
 }
 
 function Receipt({ receipt, onClose }: { receipt: ReceiptData; onClose: () => void }) {
+  // Auto-open the print dialog when the bill is generated.
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 300);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-      <div className="card w-full max-w-sm print:shadow-none">
-        <div className="text-center">
-          <h2 className="font-bold">Divya SRJ Canteen</h2>
-          <p className="text-xs text-muted">Bill No: {receipt.billNo}</p>
-          <p className="text-xs text-muted">{formatDateTime(receipt.billTime)}</p>
-          {receipt.pending && <p className="badge-danger mt-1 inline-block">Pending Sync (Offline)</p>}
-        </div>
-        <table className="table-base mt-3">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th className="text-right">Qty</th>
-              <th className="text-right">Rate</th>
-              <th className="text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {receipt.items.map((l) => (
-              <tr key={l.productId}>
-                <td>{l.name}</td>
-                <td className="text-right">{l.quantity}</td>
-                <td className="text-right">{l.rate}</td>
-                <td className="text-right">{(l.quantity * l.rate - l.discount).toFixed(2)}</td>
+      <div className="card w-full max-w-xs">
+        {/* Printable area — thermal 80mm receipt */}
+        <div className="receipt-print text-sm">
+          <div className="text-center">
+            <h2 className="text-base font-bold">Divya SRJ Canteen</h2>
+            <p className="text-[11px]">Divya SRJ Biscuit Manufacturing Co.</p>
+            <div className="my-1 border-t border-dashed border-ink/40" />
+            <p className="text-[11px]">Bill No: {receipt.billNo}</p>
+            <p className="text-[11px]">{formatDateTime(receipt.billTime)}</p>
+            {receipt.pending && <p className="mt-1 text-[11px] font-semibold">** OFFLINE — will sync **</p>}
+          </div>
+
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-dashed border-ink/40">
+                <th className="py-0.5 text-left font-semibold">Item</th>
+                <th className="text-right font-semibold">Qty</th>
+                <th className="text-right font-semibold">Rate</th>
+                <th className="text-right font-semibold">Amt</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-2 space-y-1 border-t border-border pt-2 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>{formatCurrency(receipt.subTotal)}</span>
+            </thead>
+            <tbody>
+              {receipt.items.map((l) => (
+                <tr key={l.productId}>
+                  <td className="py-0.5">{l.name}</td>
+                  <td className="text-right">{Number(l.quantity)}</td>
+                  <td className="text-right">{Number(l.rate).toFixed(2)}</td>
+                  <td className="text-right">{(l.quantity * l.rate - l.discount).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <div className="space-y-0.5 text-[12px]">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatCurrency(receipt.subTotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Discount</span>
+              <span>-{formatCurrency(receipt.discountTotal)}</span>
+            </div>
+            <div className="flex justify-between border-t border-dashed border-ink/40 pt-0.5 text-sm font-bold">
+              <span>TOTAL</span>
+              <span>{formatCurrency(receipt.grandTotal)}</span>
+            </div>
+            <p className="pt-0.5">Payment: {receipt.paymentMode}</p>
           </div>
-          <div className="flex justify-between">
-            <span>Discount</span>
-            <span>-{formatCurrency(receipt.discountTotal)}</span>
-          </div>
-          <div className="flex justify-between text-base font-bold">
-            <span>Total</span>
-            <span>{formatCurrency(receipt.grandTotal)}</span>
-          </div>
-          <p>Payment: {receipt.paymentMode}</p>
+
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <p className="text-center text-[11px]">Thank you! Visit again 🙏</p>
         </div>
+
+        {/* Actions — hidden when printing */}
         <div className="mt-4 flex gap-2 print:hidden">
           <button className="btn-secondary flex-1" onClick={() => window.print()}>
-            Print
+            🖨 Print
           </button>
           <button className="btn-primary flex-1" onClick={onClose}>
             New Sale
