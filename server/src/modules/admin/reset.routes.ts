@@ -38,10 +38,29 @@ const TABLES_TO_CLEAR = [
   "units",
 ];
 
+import { CLEANUP_SCOPES, runCleanup } from "./cleanup.service";
+
 const resetSchema = z.object({
   // The client must echo this exact word so a reset can't happen by accident.
   confirm: z.literal("DELETE"),
 });
+
+const cleanupSchema = z.object({
+  confirm: z.literal("DELETE"),
+  scopes: z.array(z.enum(CLEANUP_SCOPES)).min(1),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
+
+resetRouter.post(
+  "/cleanup",
+  validateBody(cleanupSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof cleanupSchema>;
+    const result = await runCleanup(body.scopes, { from: body.from, to: body.to }, req.user!.sub);
+    res.json(result);
+  })
+);
 
 resetRouter.post(
   "/reset",
