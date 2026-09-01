@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import axios from "axios";
@@ -409,14 +410,14 @@ function Receipt({ receipt, onClose }: { receipt: ReceiptData; onClose: () => vo
     return () => clearTimeout(t);
   }, []);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-      <div className="card w-full max-w-xs">
+  return createPortal(
+    <div className="receipt-modal fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+      <div className="receipt-card card w-full max-w-xs">
         {/* Printable area — thermal 80mm receipt */}
         <div className="receipt-print text-sm">
           <div className="text-center">
-            <h2 className="text-base font-bold">Divya SRJ Canteen</h2>
-            <p className="text-[11px]">Divya SRJ Biscuit Manufacturing Co.</p>
+            <h2 className="text-base font-bold">Indrayani Upahar Gruh</h2>
+            <p className="text-[11px]">Canteen</p>
             <div className="my-1 border-t border-dashed border-ink/40" />
             <p className="text-[11px]">Bill No: {receipt.billNo}</p>
             <p className="text-[11px]">{formatDateTime(receipt.billTime)}</p>
@@ -467,7 +468,7 @@ function Receipt({ receipt, onClose }: { receipt: ReceiptData; onClose: () => vo
         </div>
 
         {/* Actions — hidden when printing */}
-        <div className="mt-4 flex gap-2 print:hidden">
+        <div className="no-print mt-4 flex gap-2">
           <button className="btn-secondary flex-1" onClick={() => window.print()}>
             🖨 Print
           </button>
@@ -476,6 +477,7 @@ function Receipt({ receipt, onClose }: { receipt: ReceiptData; onClose: () => vo
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

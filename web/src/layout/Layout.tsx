@@ -32,9 +32,9 @@ export function Layout() {
         } ${collapsed ? "lg:w-16" : "lg:w-64"}`}
       >
         <div className={`flex h-16 items-center gap-2 border-b border-border ${collapsed ? "lg:justify-center lg:px-0" : ""} px-5`}>
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-white">D</div>
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-white">I</div>
           <div className={hideOnCollapse}>
-            <p className="text-sm font-bold leading-tight">Divya SRJ</p>
+            <p className="text-sm font-bold leading-tight">Indrayani Upahar Gruh</p>
             <p className="text-xs leading-tight text-muted">Canteen System</p>
           </div>
         </div>

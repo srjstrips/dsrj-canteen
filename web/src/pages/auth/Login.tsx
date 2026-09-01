@@ -31,8 +31,8 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="card w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-xl font-bold text-white">D</div>
-          <h1 className="text-lg font-bold">Divya SRJ Canteen</h1>
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-xl font-bold text-white">I</div>
+          <h1 className="text-lg font-bold">Indrayani Upahar Gruh</h1>
           <p className="text-sm text-muted">Inventory & Billing System</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -56,7 +56,7 @@ export function Login() {
             {submitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
-        <p className="mt-5 text-center text-xs text-muted">Internal use only — Divya SRJ Biscuit Manufacturing Company</p>
+        <p className="mt-5 text-center text-xs text-muted">Internal use only — Indrayani Upahar Gruh</p>
       </div>
     </div>
   );

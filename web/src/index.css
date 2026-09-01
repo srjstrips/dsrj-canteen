@@ -10,29 +10,36 @@ body {
   @apply bg-background text-ink antialiased;
 }
 
-/* Print only the receipt (thermal 80mm), hide the rest of the app. */
+/* Print only the receipt (thermal 80mm). The receipt is rendered in a portal
+ * (sibling of #root); hiding #root removes the whole app so no blank pages. */
 @media print {
-  body * {
-    visibility: hidden;
+  #root {
+    display: none !important;
   }
-  .receipt-print,
-  .receipt-print * {
-    visibility: visible;
+  .receipt-modal {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  .receipt-modal .receipt-card {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+    width: auto !important;
+    padding: 0 !important;
   }
   .receipt-print {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 80mm;
-    margin: 0;
-    padding: 0;
-    box-shadow: none !important;
+    width: 72mm;
     font-family: ui-monospace, "Courier New", monospace;
     color: #000;
   }
+  .no-print {
+    display: none !important;
+  }
   @page {
     size: 80mm auto;
-    margin: 4mm;
+    margin: 3mm;
   }
 }
 

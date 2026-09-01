@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "Divya SRJ Canteen",
-        short_name: "DSRJ Canteen",
+        name: "Indrayani Upahar Gruh",
+        short_name: "Indrayani",
         description: "Inventory & Billing Management System",
         theme_color: "#F97316",
         background_color: "#FAF9F6",
