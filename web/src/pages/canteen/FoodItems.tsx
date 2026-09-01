@@ -36,17 +36,19 @@ export function FoodItems() {
   });
 
   const deleteCategory = useMutation({
-    mutationFn: async ({ id, force }: { id: string; force?: boolean }) =>
-      api.delete(`/masters/products/food-category/${id}${force ? "?force=true" : ""}`),
+    mutationFn: async ({ id, mode }: { id: string; mode?: "cascade" | "unlink" }) =>
+      api.delete(`/masters/products/food-category/${id}${mode ? `?mode=${mode}` : ""}`),
     onSuccess: () => {
       toast.success("Category deleted");
       invalidate();
     },
     onError: (e, vars) => {
       const msg = apiErrorMessage(e);
-      if (msg.includes("food items") && !vars.force) {
-        if (window.confirm(`This category has food items. Force-delete it? Items will become uncategorized.`))
-          deleteCategory.mutate({ id: vars.id, force: true });
+      if (msg.includes("food items") && !vars.mode) {
+        const cascade = window.confirm(
+          `This category has food items.\n\nOK → Delete category AND its unbilled items\nCancel → Keep items, just remove category (items become uncategorized)`
+        );
+        deleteCategory.mutate({ id: vars.id, mode: cascade ? "cascade" : "unlink" });
       } else {
         toast.error(msg);
       }
@@ -167,7 +169,7 @@ export function FoodItems() {
                   className="text-primary/70 hover:text-danger"
                   title="Delete category"
                   onClick={() => {
-                    if (window.confirm(`Delete category "${c.name}"?`)) deleteCategory.mutate({ id: c.id });
+                    if (window.confirm(`Delete category "${c.name}"?`)) deleteCategory.mutate({ id: c.id, mode: undefined });
                   }}
                 >
                   ✕
