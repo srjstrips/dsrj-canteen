@@ -278,36 +278,6 @@ export function Billing() {
           {filteredProducts.length === 0 && <p className="text-muted">No products match.</p>}
         </div>
 
-        <div className="card overflow-x-auto p-0">
-          <h2 className="flex items-center gap-2 p-4 pb-0 font-semibold">🕐 Today's Bills</h2>
-          <table className="table-base mt-2">
-            <thead>
-              <tr>
-                <th>Bill No.</th>
-                <th>Time</th>
-                <th>Payment</th>
-                <th className="text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(todaysBills?.length ?? 0) === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted">
-                    No bills generated today. Completed bills will appear here.
-                  </td>
-                </tr>
-              )}
-              {todaysBills?.slice(0, 8).map((s) => (
-                <tr key={s.id}>
-                  <td className="font-medium">{s.billNo}</td>
-                  <td>{formatDateTime(s.billTime)}</td>
-                  <td>{s.paymentMode}</td>
-                  <td className="text-right">{formatCurrency(s.grandTotal)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
 
       <div className="card space-y-3 xl:overflow-y-auto xl:h-full">
@@ -436,6 +406,9 @@ export function Billing() {
         <button className="btn-primary w-full !py-3 text-base" onClick={generateBill} disabled={submitting || cart.length === 0}>
           {submitting ? "Generating…" : "🧾 Generate Bill"}
         </button>
+
+        {/* Today's Bills */}
+        <TodaysBills bills={todaysBills ?? []} />
       </div>
 
       {receipt && <Receipt receipt={receipt} onClose={() => setReceipt(null)} />}
@@ -515,6 +488,202 @@ function Receipt({ receipt, onClose }: { receipt: ReceiptData; onClose: () => vo
           <button className="btn-primary flex-1" onClick={onClose}>
             New Sale
           </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Today's Bills sidebar section
+// ---------------------------------------------------------------------------
+function TodaysBills({ bills }: { bills: Sale[] }) {
+  const [open, setOpen] = useState(true);
+  const [reprint, setReprint] = useState<Sale | null>(null);
+  const [printAll, setPrintAll] = useState(false);
+
+  const todayTotal = bills.reduce((s, b) => s + Number(b.grandTotal), 0);
+
+  return (
+    <>
+      <div className="border-t border-border pt-3">
+        <div className="flex items-center justify-between">
+          <button
+            className="flex items-center gap-1 text-sm font-semibold"
+            onClick={() => setOpen((o) => !o)}
+          >
+            🕐 Today's Bills ({bills.length})
+            <span className="text-xs text-muted">{open ? "▲" : "▼"}</span>
+          </button>
+          {bills.length > 0 && (
+            <button
+              className="text-xs font-medium text-primary hover:underline"
+              onClick={() => setPrintAll(true)}
+            >
+              🖨 Print All
+            </button>
+          )}
+        </div>
+
+        {open && (
+          <div className="mt-2 space-y-1">
+            {bills.length === 0 && (
+              <p className="py-3 text-center text-xs text-muted">No bills yet today.</p>
+            )}
+            {bills.map((b) => (
+              <button
+                key={b.id}
+                className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs hover:bg-background"
+                onClick={() => setReprint(b)}
+              >
+                <span className="font-semibold text-primary">{b.billNo}</span>
+                <span className="text-muted">{formatDateTime(b.billTime)}</span>
+                <span className="font-medium">{formatCurrency(b.grandTotal)}</span>
+                <span className="text-[10px] text-muted">{b.paymentMode}</span>
+              </button>
+            ))}
+            {bills.length > 0 && (
+              <div className="flex justify-between border-t border-border pt-1 text-xs font-bold">
+                <span>Day Total</span>
+                <span className="text-primary">{formatCurrency(todayTotal)}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {reprint && <ReprintModal sale={reprint} onClose={() => setReprint(null)} />}
+      {printAll && <PrintAllModal bills={bills} onClose={() => setPrintAll(false)} />}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reprint a single past bill
+// ---------------------------------------------------------------------------
+function ReprintModal({ sale, onClose }: { sale: Sale; onClose: () => void }) {
+  return createPortal(
+    <div className="receipt-modal fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+      <div className="receipt-card card w-full max-w-xs">
+        <div className="receipt-print text-sm">
+          <div className="text-center">
+            <h2 className="text-base font-bold">Indrayani Upahar Gruh</h2>
+            <p className="text-[11px]">Canteen</p>
+            <div className="my-1 border-t border-dashed border-ink/40" />
+            <p className="text-[11px]">Bill No: {sale.billNo}</p>
+            <p className="text-[11px]">{formatDateTime(sale.billTime)}</p>
+            <p className="text-[10px] font-semibold text-muted">** REPRINT **</p>
+          </div>
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-dashed border-ink/40">
+                <th className="py-0.5 text-left font-semibold">Item</th>
+                <th className="text-right font-semibold">Qty</th>
+                <th className="text-right font-semibold">Rate</th>
+                <th className="text-right font-semibold">Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sale.items.map((l) => (
+                <tr key={l.id}>
+                  <td className="py-0.5">{l.product?.name ?? "-"}</td>
+                  <td className="text-right">{Number(l.quantity)}</td>
+                  <td className="text-right">{Number(l.rate).toFixed(2)}</td>
+                  <td className="text-right">{Number(l.amount).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <div className="space-y-0.5 text-[12px]">
+            <div className="flex justify-between">
+              <span>Subtotal</span><span>{formatCurrency(sale.subTotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Discount</span><span>-{formatCurrency(sale.discountTotal)}</span>
+            </div>
+            <div className="flex justify-between border-t border-dashed border-ink/40 pt-0.5 text-sm font-bold">
+              <span>TOTAL</span><span>{formatCurrency(sale.grandTotal)}</span>
+            </div>
+            <p className="pt-0.5">Payment: {sale.paymentMode}</p>
+          </div>
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <p className="text-center text-[11px]">Thank you! Visit again 🙏</p>
+        </div>
+        <div className="no-print mt-4 flex gap-2">
+          <button className="btn-secondary flex-1" onClick={() => window.print()}>🖨 Print</button>
+          <button className="btn-primary flex-1" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Print all today's bills as a single consolidated summary
+// ---------------------------------------------------------------------------
+function PrintAllModal({ bills, onClose }: { bills: Sale[]; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 300);
+    return () => clearTimeout(t);
+  }, []);
+
+  const grandTotal = bills.reduce((s, b) => s + Number(b.grandTotal), 0);
+  const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  return createPortal(
+    <div className="receipt-modal fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+      <div className="receipt-card card w-full max-w-sm">
+        <div className="receipt-print text-sm">
+          <div className="text-center">
+            <h2 className="text-base font-bold">Indrayani Upahar Gruh</h2>
+            <p className="text-[11px]">Daily Sales Summary — {today}</p>
+            <p className="text-[11px]">Total Bills: {bills.length}</p>
+          </div>
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="border-b border-dashed border-ink/40">
+                <th className="py-0.5 text-left font-semibold">Bill No</th>
+                <th className="text-left font-semibold">Time</th>
+                <th className="text-left font-semibold">Pay</th>
+                <th className="text-right font-semibold">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...bills].reverse().map((b) => (
+                <tr key={b.id} className="border-b border-dashed border-ink/20">
+                  <td className="py-0.5 font-medium">{b.billNo}</td>
+                  <td>{formatDateTime(b.billTime).split(" ")[1]}</td>
+                  <td>{b.paymentMode}</td>
+                  <td className="text-right">{formatCurrency(b.grandTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <div className="flex justify-between text-sm font-bold">
+            <span>DAY TOTAL</span>
+            <span>{formatCurrency(grandTotal)}</span>
+          </div>
+          {/* Payment mode breakdown */}
+          {(["CASH", "UPI", "CREDIT"] as PaymentMode[]).map((mode) => {
+            const amt = bills.filter((b) => b.paymentMode === mode).reduce((s, b) => s + Number(b.grandTotal), 0);
+            return amt > 0 ? (
+              <div key={mode} className="flex justify-between text-[11px] text-muted">
+                <span>{mode}</span><span>{formatCurrency(amt)}</span>
+              </div>
+            ) : null;
+          })}
+          <div className="my-1 border-t border-dashed border-ink/40" />
+          <p className="text-center text-[11px]">Indrayani Upahar Gruh</p>
+        </div>
+        <div className="no-print mt-4 flex gap-2">
+          <button className="btn-secondary flex-1" onClick={() => window.print()}>🖨 Print</button>
+          <button className="btn-primary flex-1" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>,
