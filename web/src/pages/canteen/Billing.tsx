@@ -191,8 +191,8 @@ export function Billing() {
   const totalItems = cart.reduce((sum, l) => sum + l.quantity, 0);
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_400px]">
-      <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_400px] xl:h-[calc(100vh-7.5rem)]">
+      <div className="space-y-4 xl:overflow-y-auto xl:pr-1">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🛒</span>
           <div>
@@ -310,7 +310,7 @@ export function Billing() {
         </div>
       </div>
 
-      <div className="card sticky top-20 h-fit space-y-3">
+      <div className="card space-y-3 xl:overflow-y-auto xl:h-full">
         <div className="flex items-center justify-between">
           <h2 className="font-bold">Current Bill</h2>
           {cart.length > 0 && (
