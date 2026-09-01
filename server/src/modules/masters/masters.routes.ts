@@ -365,19 +365,89 @@ productsRouter.post(
   })
 );
 
+// GET food categories with product count
+productsRouter.get(
+  "/food-categories",
+  requireRole(Role.CANTEEN),
+  asyncHandler(async (_req, res) => {
+    const rows = await query<{ id: string; name: string; active: boolean; productCount: number }>(
+      pool,
+      `SELECT c.id, c.name, c.active,
+              COUNT(p.id)::int AS "productCount"
+       FROM categories c
+       LEFT JOIN products p ON p.category_id = c.id AND p.active = TRUE
+       WHERE c.is_food = TRUE
+       GROUP BY c.id
+       ORDER BY c.name ASC`
+    );
+    res.json(rows);
+  })
+);
+
+// Rename / toggle active a food category
+productsRouter.patch(
+  "/food-category/:id",
+  requireRole(Role.CANTEEN),
+  validateBody(z.object({ name: z.string().min(1).optional(), active: z.boolean().optional() })),
+  asyncHandler(async (req, res) => {
+    const body = req.body as { name?: string; active?: boolean };
+    const before = await queryOne(pool, "SELECT * FROM categories WHERE id = $1 AND is_food = TRUE", [req.params.id]);
+    if (!before) throw ApiError.notFound("Food category not found");
+    if (body.name) {
+      const conflict = await queryOne(pool, "SELECT id FROM categories WHERE lower(name) = lower($1) AND id != $2 LIMIT 1", [body.name, req.params.id]);
+      if (conflict) throw ApiError.badRequest(`A category named "${body.name}" already exists`);
+    }
+    const updated = await queryOne(
+      pool,
+      `UPDATE categories SET name = COALESCE($2, name), active = COALESCE($3, active), updated_at = now()
+       WHERE id = $1 RETURNING *`,
+      [req.params.id, body.name ?? null, body.active ?? null]
+    );
+    await writeAudit(pool, { entity: "Category", entityId: req.params.id, action: "UPDATE", actorId: req.user!.sub, before, after: updated });
+    res.json(updated);
+  })
+);
+
 productsRouter.delete(
   "/food-category/:id",
   requireRole(Role.CANTEEN),
   asyncHandler(async (req, res) => {
     const before = await queryOne(pool, "SELECT * FROM categories WHERE id = $1", [req.params.id]);
     if (!before) throw ApiError.notFound("Category not found");
-    // If force=true, unlink food items from this category before deleting
-    if (req.query.force === "true") {
+
+    const mode = req.query.mode as string | undefined;
+
+    if (mode === "cascade") {
+      // Delete only products that have never been billed or ordered (safe to hard-delete)
+      // Products that were billed get unlinked (category_id → NULL) to preserve history
+      const billedIds = await query<{ id: string }>(
+        pool,
+        `SELECT DISTINCT p.id FROM products p
+         WHERE p.category_id = $1
+           AND (EXISTS (SELECT 1 FROM sale_items si WHERE si.product_id = p.id)
+             OR EXISTS (SELECT 1 FROM managed_order_items moi WHERE moi.product_id = p.id))`,
+        [req.params.id]
+      );
+      const billedSet = new Set(billedIds.map((r) => r.id));
+
+      const allProducts = await query<{ id: string }>(pool, "SELECT id FROM products WHERE category_id = $1", [req.params.id]);
+      for (const p of allProducts) {
+        if (billedSet.has(p.id)) {
+          // Keep record for history but unlink from category
+          await query(pool, "UPDATE products SET category_id = NULL WHERE id = $1", [p.id]);
+        } else {
+          await query(pool, "DELETE FROM products WHERE id = $1", [p.id]);
+          await writeAudit(pool, { entity: "Product", entityId: p.id, action: "DELETE", actorId: req.user!.sub, before: p });
+        }
+      }
+    } else if (mode === "unlink") {
+      // Move all products to uncategorized
       await query(pool, "UPDATE products SET category_id = NULL WHERE category_id = $1", [req.params.id]);
     } else {
       const inUse = await queryOne(pool, "SELECT 1 FROM products WHERE category_id = $1 LIMIT 1", [req.params.id]);
-      if (inUse) throw ApiError.badRequest("This category has food items — move or delete them first");
+      if (inUse) throw ApiError.badRequest("This category has food items — use mode=cascade or mode=unlink");
     }
+
     await query(pool, "DELETE FROM categories WHERE id = $1", [req.params.id]);
     await writeAudit(pool, { entity: "Category", entityId: req.params.id, action: "DELETE", actorId: req.user!.sub, before });
     res.status(204).end();

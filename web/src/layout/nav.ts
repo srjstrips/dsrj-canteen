@@ -68,6 +68,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Received Stock", to: "/canteen/received-stock", icon: Inbox, roles: ["CANTEEN"] },
       { label: "Canteen Stock", to: "/canteen/stock", icon: Soup, roles: ["CANTEEN"] },
+      { label: "Food Categories", to: "/canteen/food-categories", icon: BookOpen, roles: ["CANTEEN"] },
       { label: "Food Items (Menu)", to: "/canteen/food-items", icon: Sandwich, roles: ["CANTEEN"] },
       { label: "Billing / POS", to: "/canteen/billing", icon: ShoppingCart, roles: ["CANTEEN"] },
       { label: "OT / Guest / Contractor Orders", to: "/canteen/managed-orders", icon: ClipboardList, roles: ["CANTEEN"] },
