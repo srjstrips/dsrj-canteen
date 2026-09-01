@@ -60,7 +60,40 @@ export function Billing() {
     (products ?? []).forEach((p) => m.set(p.categoryId, (m.get(p.categoryId) ?? 0) + 1));
     return m;
   }, [products]);
-  const activeCategories = (categories ?? []).filter((c) => (countByCategory.get(c.id) ?? 0) > 0);
+
+  const rawActiveCategories = (categories ?? []).filter((c) => (countByCategory.get(c.id) ?? 0) > 0);
+
+  // Persist category tab order in localStorage so the user's drag order survives refresh.
+  const [catOrder, setCatOrder] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("billing-cat-order") ?? "[]"); } catch { return []; }
+  });
+  const activeCategories = useMemo(() => {
+    const known = new Map(rawActiveCategories.map((c) => [c.id, c]));
+    const ordered = catOrder.filter((id) => known.has(id)).map((id) => known.get(id)!);
+    const rest = rawActiveCategories.filter((c) => !catOrder.includes(c.id));
+    return [...ordered, ...rest];
+  }, [rawActiveCategories, catOrder]);
+
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  function onDragStart(e: React.DragEvent, id: string) {
+    e.dataTransfer.setData("catId", id);
+    e.dataTransfer.effectAllowed = "move";
+  }
+  function onDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    const srcId = e.dataTransfer.getData("catId");
+    if (!srcId || srcId === targetId) return;
+    const ids = activeCategories.map((c) => c.id);
+    const from = ids.indexOf(srcId);
+    const to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, srcId);
+    setCatOrder(ids);
+    localStorage.setItem("billing-cat-order", JSON.stringify(ids));
+    setDragOverId(null);
+  }
 
   const qtyInCart = (productId: string) => cart.find((l) => l.productId === productId)?.quantity ?? 0;
   function changeQty(productId: string, delta: number) {
@@ -183,7 +216,14 @@ export function Billing() {
           {activeCategories.map((c) => (
             <button
               key={c.id}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium ${categoryId === c.id ? "bg-primary text-white" : "border border-border bg-card hover:bg-background"}`}
+              draggable
+              onDragStart={(e) => onDragStart(e, c.id)}
+              onDragOver={(e) => { e.preventDefault(); setDragOverId(c.id); }}
+              onDragLeave={() => setDragOverId(null)}
+              onDrop={(e) => onDrop(e, c.id)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all cursor-grab active:cursor-grabbing
+                ${categoryId === c.id ? "bg-primary text-white" : "border border-border bg-card hover:bg-background"}
+                ${dragOverId === c.id ? "ring-2 ring-primary ring-offset-1 scale-105" : ""}`}
               onClick={() => setCategoryId(c.id)}
             >
               {c.name} ({countByCategory.get(c.id)})
