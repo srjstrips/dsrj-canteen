@@ -209,9 +209,9 @@ const IMPORTERS: Record<string, ImporterConfig> = {
       return { name, categoryName: catName, categoryId: categoryId ?? null, sellPrice: parsePrice(c[2]) };
     },
     insert: async (client, r) => {
-      // Auto-create food category if it doesn't exist yet
+      // Resolve or auto-create the food category
       let categoryId = r.categoryId as string | null;
-      if (!categoryId && r.categoryName) {
+      if (!categoryId) {
         const existing = await client.query("SELECT id FROM categories WHERE lower(name) = lower($1) LIMIT 1", [r.categoryName]);
         if (existing.rows[0]) {
           categoryId = existing.rows[0].id as string;
@@ -223,9 +223,14 @@ const IMPORTERS: Record<string, ImporterConfig> = {
           categoryId = created.rows[0].id as string;
         }
       }
-      // Get or create a default "plate" unit for food items
-      const unitRes = await client.query("SELECT id FROM units WHERE lower(name) = 'plate' LIMIT 1");
-      const unitId = unitRes.rows[0]?.id ?? null;
+      // Get or auto-create a "Plate" unit for food items
+      let unitRes = await client.query("SELECT id FROM units WHERE lower(name) = 'plate' LIMIT 1");
+      if (!unitRes.rows[0]) {
+        unitRes = await client.query(
+          "INSERT INTO units (name, symbol) VALUES ('Plate', 'plate') ON CONFLICT (symbol) DO UPDATE SET name = EXCLUDED.name RETURNING id"
+        );
+      }
+      const unitId = unitRes.rows[0].id as string;
       const row = await client.query(
         `INSERT INTO products (name, category_id, unit_id, sell_price, track_canteen_stock, active)
          VALUES ($1, $2, $3, $4, FALSE, TRUE)
