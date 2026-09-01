@@ -371,8 +371,13 @@ productsRouter.delete(
   asyncHandler(async (req, res) => {
     const before = await queryOne(pool, "SELECT * FROM categories WHERE id = $1", [req.params.id]);
     if (!before) throw ApiError.notFound("Category not found");
-    const inUse = await queryOne(pool, "SELECT 1 FROM products WHERE category_id = $1 LIMIT 1", [req.params.id]);
-    if (inUse) throw ApiError.badRequest("This category has food items — move or delete them first");
+    // If force=true, unlink food items from this category before deleting
+    if (req.query.force === "true") {
+      await query(pool, "UPDATE products SET category_id = NULL WHERE category_id = $1", [req.params.id]);
+    } else {
+      const inUse = await queryOne(pool, "SELECT 1 FROM products WHERE category_id = $1 LIMIT 1", [req.params.id]);
+      if (inUse) throw ApiError.badRequest("This category has food items — move or delete them first");
+    }
     await query(pool, "DELETE FROM categories WHERE id = $1", [req.params.id]);
     await writeAudit(pool, { entity: "Category", entityId: req.params.id, action: "DELETE", actorId: req.user!.sub, before });
     res.status(204).end();

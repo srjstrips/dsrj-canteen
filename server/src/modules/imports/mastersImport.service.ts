@@ -17,6 +17,12 @@ function cellText(value: ExcelJS.CellValue): string {
   return String(value).trim();
 }
 
+function parsePrice(raw: string): number {
+  const n = Number(raw.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(n) || n < 0) throw "Price must be a non-negative number";
+  return n;
+}
+
 function cellNumber(value: ExcelJS.CellValue): number | null {
   const text = cellText(value);
   if (text === "") return null;
@@ -172,6 +178,59 @@ const IMPORTERS: Record<string, ImporterConfig> = {
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (name, unit_id) DO NOTHING RETURNING id`,
         [r.name, r.categoryId, r.unitId, r.sellPrice, r.minStock, r.reorder, r.trackCanteenStock]
+      );
+      return row.rows[0]?.id ?? null;
+    },
+  },
+
+  "food-items": {
+    role: Role.CANTEEN,
+    entity: "FoodItem",
+    templateName: "food-items-template.xlsx",
+    columns: [
+      { header: "Name *", width: 28 },
+      { header: "Category *", width: 20 },
+      { header: "Price (₹) *", width: 14 },
+    ],
+    buildReference: async () => {
+      const cats = await query<{ name: string }>(pool, "SELECT name FROM categories WHERE active = TRUE ORDER BY name");
+      return { title: "Valid Categories", header: ["Category"], rows: cats.map((c) => [c.name]) };
+    },
+    parseRow: (c, ctx) => {
+      const name = c[0];
+      if (!name) throw "Name is required";
+      const catName = c[1] || "";
+      let categoryId = ctx.categoryByName.get(catName.toLowerCase());
+      if (!categoryId && catName) {
+        // Will be created on insert; store the raw name and resolve in insert
+        return { name, categoryName: catName, categoryId: null, sellPrice: parsePrice(c[2]) };
+      }
+      if (!catName) throw "Category is required";
+      return { name, categoryName: catName, categoryId: categoryId ?? null, sellPrice: parsePrice(c[2]) };
+    },
+    insert: async (client, r) => {
+      // Auto-create food category if it doesn't exist yet
+      let categoryId = r.categoryId as string | null;
+      if (!categoryId && r.categoryName) {
+        const existing = await client.query("SELECT id FROM categories WHERE lower(name) = lower($1) LIMIT 1", [r.categoryName]);
+        if (existing.rows[0]) {
+          categoryId = existing.rows[0].id as string;
+        } else {
+          const created = await client.query(
+            "INSERT INTO categories (name, active, is_food) VALUES ($1, TRUE, TRUE) ON CONFLICT (name) DO UPDATE SET is_food = TRUE RETURNING id",
+            [r.categoryName]
+          );
+          categoryId = created.rows[0].id as string;
+        }
+      }
+      // Get or create a default "plate" unit for food items
+      const unitRes = await client.query("SELECT id FROM units WHERE lower(name) = 'plate' LIMIT 1");
+      const unitId = unitRes.rows[0]?.id ?? null;
+      const row = await client.query(
+        `INSERT INTO products (name, category_id, unit_id, sell_price, track_canteen_stock, active)
+         VALUES ($1, $2, $3, $4, FALSE, TRUE)
+         ON CONFLICT (name, unit_id) DO NOTHING RETURNING id`,
+        [r.name, categoryId, unitId, r.sellPrice]
       );
       return row.rows[0]?.id ?? null;
     },

@@ -6,6 +6,7 @@ import { useCategories, useFoodItems } from "../../api/queries";
 import { Modal } from "../../components/Modal";
 import { Product } from "../../types";
 import { formatCurrency } from "../../lib/format";
+import { MasterImport } from "../../components/MasterImport";
 
 const PRESET_CATEGORIES = ["Breakfast", "Lunch / Dinner", "Snacks", "Sweet", "Beverage"];
 
@@ -35,12 +36,21 @@ export function FoodItems() {
   });
 
   const deleteCategory = useMutation({
-    mutationFn: async (id: string) => api.delete(`/masters/products/food-category/${id}`),
+    mutationFn: async ({ id, force }: { id: string; force?: boolean }) =>
+      api.delete(`/masters/products/food-category/${id}${force ? "?force=true" : ""}`),
     onSuccess: () => {
       toast.success("Category deleted");
       invalidate();
     },
-    onError: (e) => toast.error(apiErrorMessage(e)),
+    onError: (e, vars) => {
+      const msg = apiErrorMessage(e);
+      if (msg.includes("food items") && !vars.force) {
+        if (window.confirm(`This category has food items. Force-delete it? Items will become uncategorized.`))
+          deleteCategory.mutate({ id: vars.id, force: true });
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const saveMutation = useMutation({
@@ -111,17 +121,25 @@ export function FoodItems() {
           <h1 className="text-xl font-bold">Food Items (Menu)</h1>
           <p className="text-sm text-muted">Prepared food sold at the counter — just name &amp; price. These do not use canteen stock.</p>
         </div>
-        <button
-          className="btn-primary"
-          onClick={() => {
-            setEditing(null);
-            setForm({ name: "", sellPrice: "", category: "" });
-            setImageFile(null);
-            setOpen(true);
-          }}
-        >
-          + New Food Item
-        </button>
+        <div className="flex gap-2">
+          <MasterImport
+            entity="food-items"
+            filename="food-items-template.xlsx"
+            hint="Columns: Name, Category, Price. Category is auto-created if new."
+            invalidateKey={["products"]}
+          />
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setEditing(null);
+              setForm({ name: "", sellPrice: "", category: "" });
+              setImageFile(null);
+              setOpen(true);
+            }}
+          >
+            + New Food Item
+          </button>
+        </div>
       </div>
 
       <div className="card space-y-2">
@@ -149,7 +167,7 @@ export function FoodItems() {
                   className="text-primary/70 hover:text-danger"
                   title="Delete category"
                   onClick={() => {
-                    if (window.confirm(`Delete category "${c.name}"? (only if it has no food items)`)) deleteCategory.mutate(c.id);
+                    if (window.confirm(`Delete category "${c.name}"?`)) deleteCategory.mutate({ id: c.id });
                   }}
                 >
                   ✕
