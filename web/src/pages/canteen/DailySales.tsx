@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
+import { ExcelButton } from "../../components/ExcelButton";
 import { StatCard } from "../../components/StatCard";
 import { formatCurrency, formatQty, todayInput } from "../../lib/format";
 
@@ -45,7 +46,10 @@ export function DailySales() {
           </div>
 
           <div className="card">
-            <h2 className="mb-3 font-semibold">Product-wise Sales</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold">Product-wise Sales</h2>
+              <ExcelButton filename="daily-sales" rows={data.productWiseSales as unknown as Record<string, unknown>[]} />
+            </div>
             <table className="table-base">
               <thead>
                 <tr>

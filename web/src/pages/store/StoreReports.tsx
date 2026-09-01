@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
+import { ExcelButton } from "../../components/ExcelButton";
 import { formatCurrency, formatQty, startOfMonthInput, todayInput } from "../../lib/format";
 
 type ReportKey = "purchase-value" | "supplier-wise-purchase" | "average-rate" | "low-stock";
@@ -41,7 +42,10 @@ export function StoreReports() {
             </button>
           ))}
         </div>
-        {tab !== "average-rate" && tab !== "low-stock" && <DateRangeFilter value={range} onChange={setRange} />}
+        <div className="flex items-center gap-2">
+          {tab !== "average-rate" && tab !== "low-stock" && <DateRangeFilter value={range} onChange={setRange} />}
+          <ExcelButton filename={`store-${tab}`} rows={data as Record<string, unknown>[] | undefined} />
+        </div>
       </div>
 
       <div className="card overflow-x-auto p-0">

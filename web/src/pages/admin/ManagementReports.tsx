@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
+import { ExcelButton } from "../../components/ExcelButton";
 import { StatCard } from "../../components/StatCard";
 import { formatCurrency, startOfMonthInput, todayInput } from "../../lib/format";
 
@@ -34,7 +35,23 @@ export function ManagementReports() {
           <h1 className="text-xl font-bold">Management Reports</h1>
           <p className="text-sm text-muted">Cross-module performance summary</p>
         </div>
-        <DateRangeFilter value={range} onChange={setRange} />
+        <div className="flex items-center gap-2">
+          <DateRangeFilter value={range} onChange={setRange} />
+          <ExcelButton
+            filename="management-summary"
+            rows={[
+              {
+                Purchases: Number(purchaseVsSales?.totalPurchaseValue ?? 0),
+                Sales: Number(purchaseVsSales?.totalSalesValue ?? 0),
+                "Store Stock Value": Number(stockValue?.storeStockValue ?? 0),
+                "Canteen Stock Value": Number(stockValue?.canteenStockValue ?? 0),
+                "Food Cost (COGS)": Number(foodCost?.costOfGoods ?? 0),
+                "Food Cost %": Number(foodCost?.foodCostPct ?? 0),
+                "Wastage Cost": totalWastage,
+              },
+            ]}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -47,6 +64,10 @@ export function ManagementReports() {
         <StatCard label="Wastage Cost (range)" value={formatCurrency(totalWastage)} tone="danger" />
       </div>
 
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">Wastage by Reason</h2>
+        <ExcelButton filename="management-wastage" rows={wastageCost as Record<string, unknown>[] | undefined} />
+      </div>
       <div className="card overflow-x-auto p-0">
         <table className="table-base">
           <thead>

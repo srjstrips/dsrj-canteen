@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useBillingAccounts } from "../../api/queries";
 import { Combobox } from "../../components/Combobox";
+import { ExcelButton } from "../../components/ExcelButton";
 import { formatCurrency, formatDate, formatQty } from "../../lib/format";
 
 interface Statement {
@@ -72,7 +73,10 @@ export function Statements() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-sm font-semibold">Product-wise summary</h2>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Product-wise summary</h2>
+              <ExcelButton filename={`statement-${statement.account.name}-products`} rows={statement.productWiseSummary as unknown as Record<string, unknown>[]} />
+            </div>
             <div className="card overflow-x-auto p-0">
               <table className="table-base">
                 <thead>
@@ -103,7 +107,10 @@ export function Statements() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-sm font-semibold">Orders</h2>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Orders</h2>
+              <ExcelButton filename={`statement-${statement.account.name}-orders`} rows={statement.orders as unknown as Record<string, unknown>[]} />
+            </div>
             <div className="card overflow-x-auto p-0">
               <table className="table-base">
                 <thead>
