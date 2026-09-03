@@ -15,6 +15,10 @@ export const CLEANUP_SCOPES = [
   "WASTAGE",
   "CONSUMPTION",
   "ADJUSTMENTS",
+  "FOOD_ITEMS", // food menu products (no stock impact)
+  "SUPPLIERS", // suppliers with no inward records
+  "STORE_PRODUCTS", // raw material products with no stock history
+  "EMPTY_CATEGORIES", // categories with no products
 ] as const;
 export type CleanupScope = (typeof CLEANUP_SCOPES)[number];
 
@@ -121,6 +125,14 @@ export async function runCleanup(scopes: CleanupScope[], range: Range, actorId: 
         case "POS_SALES": {
           const ids = await delReturningIds(client, "sales", "bill_date", range);
           await delLedgerByRef(client, "canteen_stock_ledger", "SALE", ids);
+          // Reset bill counters so next bill starts from 0001 when all sales cleared.
+          if (!range.from && !range.to) {
+            await client.query("TRUNCATE bill_counters");
+          } else {
+            const p: unknown[] = [];
+            const w = dateClause("bill_date", range, p);
+            await client.query(`DELETE FROM bill_counters ${w}`, p);
+          }
           touchedCanteen = true;
           break;
         }
@@ -188,6 +200,48 @@ export async function runCleanup(scopes: CleanupScope[], range: Range, actorId: 
           await delLedgerByTypeDate(client, "canteen_stock_ledger", "ADJUSTMENT", range);
           touchedStore = true;
           touchedCanteen = true;
+          break;
+        }
+        case "FOOD_ITEMS": {
+          // Delete food menu products (track_canteen_stock=FALSE) that have never been billed.
+          const inUse = await client.query(
+            `SELECT DISTINCT product_id FROM sale_items
+             UNION SELECT DISTINCT product_id FROM managed_order_items`
+          );
+          const usedIds = inUse.rows.map((r) => r.product_id as string);
+          if (usedIds.length > 0) {
+            await client.query(
+              `DELETE FROM products WHERE track_canteen_stock = FALSE AND id != ALL($1::uuid[])`,
+              [usedIds]
+            );
+          } else {
+            await client.query(`DELETE FROM products WHERE track_canteen_stock = FALSE`);
+          }
+          break;
+        }
+        case "SUPPLIERS": {
+          // Delete suppliers that have no stock inward records.
+          await client.query(
+            `DELETE FROM suppliers WHERE id NOT IN (SELECT DISTINCT supplier_id FROM stock_inwards)`
+          );
+          break;
+        }
+        case "STORE_PRODUCTS": {
+          // Delete raw material products (is_food=FALSE) that have no stock history.
+          await client.query(
+            `DELETE FROM products p
+             USING categories c
+             WHERE p.category_id = c.id AND c.is_food = FALSE
+               AND p.id NOT IN (SELECT DISTINCT product_id FROM store_stock_ledger)
+               AND p.id NOT IN (SELECT DISTINCT product_id FROM canteen_stock_ledger)`
+          );
+          break;
+        }
+        case "EMPTY_CATEGORIES": {
+          // Delete categories that have no products at all.
+          await client.query(
+            `DELETE FROM categories WHERE id NOT IN (SELECT DISTINCT category_id FROM products)`
+          );
           break;
         }
       }

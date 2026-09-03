@@ -3,16 +3,31 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 
-const SCOPES: { key: string; label: string; hint: string }[] = [
-  { key: "POS_SALES", label: "Canteen bills (POS sales)", hint: "Counter sales + their stock movements" },
-  { key: "MANAGED_ORDERS", label: "OT / Guest / Contractor orders", hint: "Managed orders + their stock movements" },
-  { key: "STORE_INWARD", label: "Store inward", hint: "Supplier receipts into store" },
-  { key: "STORE_ISSUES", label: "Stock issues to canteen", hint: "Store → canteen issues" },
-  { key: "STOCK_RETURNS", label: "Stock returns to store", hint: "Canteen → store returns" },
-  { key: "WASTAGE", label: "Wastage", hint: "Canteen wastage entries" },
-  { key: "CONSUMPTION", label: "Consumption", hint: "Canteen consumption entries" },
-  { key: "ADJUSTMENTS", label: "Stock adjustments", hint: "Manual store/canteen corrections" },
+const SCOPE_GROUPS: { title: string; scopes: { key: string; label: string; hint: string }[] }[] = [
+  {
+    title: "Transaction Logs",
+    scopes: [
+      { key: "POS_SALES", label: "Canteen bills (POS sales)", hint: "Counter sales + their stock movements. Bill numbers reset to 0001." },
+      { key: "MANAGED_ORDERS", label: "OT / Guest / Contractor orders", hint: "Managed orders + their stock movements" },
+      { key: "STORE_INWARD", label: "Store inward", hint: "Supplier receipts into store" },
+      { key: "STORE_ISSUES", label: "Stock issues to canteen", hint: "Store → canteen issues" },
+      { key: "STOCK_RETURNS", label: "Stock returns to store", hint: "Canteen → store returns" },
+      { key: "WASTAGE", label: "Wastage", hint: "Canteen wastage entries" },
+      { key: "CONSUMPTION", label: "Consumption", hint: "Canteen consumption entries" },
+      { key: "ADJUSTMENTS", label: "Stock adjustments", hint: "Manual store/canteen corrections" },
+    ],
+  },
+  {
+    title: "Master Data",
+    scopes: [
+      { key: "FOOD_ITEMS", label: "Food items (menu)", hint: "Deletes food menu items that have never been billed" },
+      { key: "SUPPLIERS", label: "Suppliers (unused)", hint: "Deletes suppliers that have no stock inward records" },
+      { key: "STORE_PRODUCTS", label: "Store products (unused)", hint: "Deletes raw material products with no stock history" },
+      { key: "EMPTY_CATEGORIES", label: "Empty categories", hint: "Deletes categories that have no products assigned" },
+    ],
+  },
 ];
+const SCOPES = SCOPE_GROUPS.flatMap((g) => g.scopes);
 
 export function ResetData() {
   const queryClient = useQueryClient();
@@ -66,17 +81,22 @@ export function ResetData() {
       <div className="card space-y-4">
         <h2 className="font-semibold">Selective delete</h2>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {SCOPES.map((s) => (
-            <label key={s.key} className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${selected.includes(s.key) ? "border-primary bg-primary-light/40" : "border-border"}`}>
-              <input type="checkbox" className="mt-0.5" checked={selected.includes(s.key)} onChange={() => toggle(s.key)} />
-              <span>
-                <span className="block text-sm font-medium">{s.label}</span>
-                <span className="block text-xs text-muted">{s.hint}</span>
-              </span>
-            </label>
-          ))}
-        </div>
+        {SCOPE_GROUPS.map((group) => (
+          <div key={group.title}>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {group.scopes.map((s) => (
+                <label key={s.key} className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${selected.includes(s.key) ? "border-primary bg-primary-light/40" : "border-border"}`}>
+                  <input type="checkbox" className="mt-0.5" checked={selected.includes(s.key)} onChange={() => toggle(s.key)} />
+                  <span>
+                    <span className="block text-sm font-medium">{s.label}</span>
+                    <span className="block text-xs text-muted">{s.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
 
         <div className="flex flex-wrap items-center gap-3">
           <button className="btn-secondary !py-1.5 text-xs" onClick={() => setSelected(SCOPES.map((s) => s.key))}>
