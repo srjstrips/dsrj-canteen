@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "Indrayani Upahar Gruh",
-        short_name: "Indrayani",
+        name: "Narayani Upahar Gruh",
+        short_name: "Narayani",
         description: "Inventory & Billing Management System",
         theme_color: "#F97316",
         background_color: "#FAF9F6",

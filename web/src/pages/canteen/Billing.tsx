@@ -429,7 +429,7 @@ function Receipt({ receipt, onClose }: { receipt: ReceiptData; onClose: () => vo
         {/* Printable area — thermal 80mm receipt */}
         <div className="receipt-print text-sm">
           <div className="text-center">
-            <h2 className="text-base font-bold">Indrayani Upahar Gruh</h2>
+            <h2 className="text-base font-bold">Narayani Upahar Gruh</h2>
             <p className="text-[11px]">Canteen</p>
             <div className="my-1 border-t border-dashed border-ink/40" />
             <p className="text-[11px]">Bill No: {receipt.billNo}</p>
@@ -568,7 +568,7 @@ function ReprintModal({ sale, onClose }: { sale: Sale; onClose: () => void }) {
       <div className="receipt-card card w-full max-w-xs">
         <div className="receipt-print text-sm">
           <div className="text-center">
-            <h2 className="text-base font-bold">Indrayani Upahar Gruh</h2>
+            <h2 className="text-base font-bold">Narayani Upahar Gruh</h2>
             <p className="text-[11px]">Canteen</p>
             <div className="my-1 border-t border-dashed border-ink/40" />
             <p className="text-[11px]">Bill No: {sale.billNo}</p>
@@ -639,7 +639,7 @@ function PrintAllModal({ bills, onClose }: { bills: Sale[]; onClose: () => void 
       <div className="receipt-card card w-full max-w-sm">
         <div className="receipt-print text-sm">
           <div className="text-center">
-            <h2 className="text-base font-bold">Indrayani Upahar Gruh</h2>
+            <h2 className="text-base font-bold">Narayani Upahar Gruh</h2>
             <p className="text-[11px]">Daily Sales Summary — {today}</p>
             <p className="text-[11px]">Total Bills: {bills.length}</p>
           </div>
@@ -679,7 +679,7 @@ function PrintAllModal({ bills, onClose }: { bills: Sale[]; onClose: () => void 
             ) : null;
           })}
           <div className="my-1 border-t border-dashed border-ink/40" />
-          <p className="text-center text-[11px]">Indrayani Upahar Gruh</p>
+          <p className="text-center text-[11px]">Narayani Upahar Gruh</p>
         </div>
         <div className="no-print mt-4 flex gap-2">
           <button className="btn-secondary flex-1" onClick={() => window.print()}>🖨 Print</button>

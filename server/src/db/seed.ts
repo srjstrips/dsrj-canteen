@@ -93,7 +93,7 @@ async function main() {
     pool,
     `INSERT INTO billing_accounts (name, type) VALUES ($1, 'COMPANY')
      ON CONFLICT (name, type) DO NOTHING RETURNING id`,
-    ["Indrayani Upahar Gruh (Company)"]
+    ["Narayani Upahar Gruh (Company)"]
   );
 
   // -------------------------------------------------------------------------
