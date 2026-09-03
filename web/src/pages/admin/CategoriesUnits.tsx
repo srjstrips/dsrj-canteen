@@ -10,14 +10,16 @@ export function CategoriesUnits() {
   const { data: categories } = useCategories();
   const { data: units } = useUnits();
   const [categoryName, setCategoryName] = useState("");
+  const [categoryType, setCategoryType] = useState<"store" | "canteen">("store");
   const [unitName, setUnitName] = useState("");
   const [unitSymbol, setUnitSymbol] = useState("");
 
   const addCategory = useMutation({
-    mutationFn: async () => api.post("/masters/categories", { name: categoryName }),
+    mutationFn: async () => api.post("/masters/categories", { name: categoryName, isFood: categoryType === "canteen" }),
     onSuccess: () => {
       toast.success("Category added");
       setCategoryName("");
+      setCategoryType("store");
       queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
@@ -68,17 +70,32 @@ export function CategoriesUnits() {
             }}
           >
             <input className="input" placeholder="e.g. Grocery" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} required />
+            <select className="input !w-36" value={categoryType} onChange={(e) => setCategoryType(e.target.value as "store" | "canteen")}>
+              <option value="store">Store</option>
+              <option value="canteen">Canteen</option>
+            </select>
             <button className="btn-primary" type="submit" disabled={addCategory.isPending}>
               Add
             </button>
           </form>
           <table className="table-base">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
-              {categories
-                ?.filter((c) => !c.isFood)
-                .map((c) => (
+              {categories?.map((c) => (
                 <tr key={c.id}>
                   <td>{c.name}</td>
+                  <td>
+                    {c.isFood
+                      ? <span className="badge-warning">Canteen</span>
+                      : <span className="badge-info">Store</span>}
+                  </td>
                   <td>{c.active ? <span className="badge-success">Active</span> : <span className="badge-danger">Inactive</span>}</td>
                   <td className="text-right">
                     <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => toggleCategory.mutate({ id: c.id, active: !c.active })}>

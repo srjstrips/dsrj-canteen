@@ -33,6 +33,15 @@ export function Suppliers() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
   });
 
+  const deleteSupplier = useMutation({
+    mutationFn: async (s: Supplier) => api.delete(`/masters/suppliers/${s.id}`),
+    onSuccess: () => {
+      toast.success("Supplier deleted");
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
   function openEdit(s: Supplier) {
     setEditing(s);
     setForm({
@@ -105,6 +114,12 @@ export function Suppliers() {
                   </button>
                   <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => toggleActive.mutate(s)}>
                     {s.active ? "Deactivate" : "Activate"}
+                  </button>
+                  <button
+                    className="btn-danger !px-2 !py-1 text-xs"
+                    onClick={() => { if (confirm(`Delete "${s.name}"?`)) deleteSupplier.mutate(s); }}
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>

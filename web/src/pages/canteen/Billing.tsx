@@ -61,7 +61,7 @@ export function Billing() {
     return m;
   }, [products]);
 
-  const rawActiveCategories = (categories ?? []).filter((c) => (countByCategory.get(c.id) ?? 0) > 0);
+  const rawActiveCategories = (categories ?? []).filter((c) => c.isFood && (countByCategory.get(c.id) ?? 0) > 0);
 
   // Persist category tab order in localStorage so the user's drag order survives refresh.
   const [catOrder, setCatOrder] = useState<string[]>(() => {

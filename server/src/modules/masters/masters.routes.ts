@@ -33,7 +33,7 @@ const imageUpload = multer({
 export const categoriesRouter = Router();
 categoriesRouter.use(requireAuth);
 
-const nameSchema = z.object({ name: z.string().min(1), active: z.boolean().optional() });
+const nameSchema = z.object({ name: z.string().min(1), active: z.boolean().optional(), isFood: z.boolean().optional() });
 
 categoriesRouter.get(
   "/",
@@ -48,8 +48,9 @@ categoriesRouter.post(
   validateBody(nameSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof nameSchema>;
-    const category = await queryOne(pool, "INSERT INTO categories (name, active) VALUES ($1, COALESCE($2, TRUE)) RETURNING *", [
+    const category = await queryOne(pool, "INSERT INTO categories (name, is_food, active) VALUES ($1, COALESCE($2, FALSE), COALESCE($3, TRUE)) RETURNING *", [
       body.name,
+      body.isFood ?? null,
       body.active ?? null,
     ]);
     await writeAudit(pool, { entity: "Category", entityId: category!.id as string, action: "CREATE", actorId: req.user!.sub, after: category });
@@ -201,6 +202,20 @@ suppliersRouter.patch(
     );
     await writeAudit(pool, { entity: "Supplier", entityId: supplier!.id as string, action: "UPDATE", actorId: req.user!.sub, before, after: supplier });
     res.json(supplier);
+  })
+);
+
+suppliersRouter.delete(
+  "/:id",
+  requireRole(Role.ADMIN),
+  asyncHandler(async (req, res) => {
+    const before = await queryOne(pool, "SELECT * FROM suppliers WHERE id = $1", [req.params.id]);
+    if (!before) throw ApiError.notFound("Supplier not found");
+    const inUse = await queryOne(pool, "SELECT id FROM stock_inwards WHERE supplier_id = $1 LIMIT 1", [req.params.id]);
+    if (inUse) throw ApiError.badRequest("Supplier has stock inward records — deactivate instead of deleting");
+    await query(pool, "DELETE FROM suppliers WHERE id = $1", [req.params.id]);
+    await writeAudit(pool, { entity: "Supplier", entityId: req.params.id, action: "DELETE", actorId: req.user!.sub, before });
+    res.json({ success: true });
   })
 );
 
