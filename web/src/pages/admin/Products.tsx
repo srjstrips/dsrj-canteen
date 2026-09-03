@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
-import { useCategories, useProducts, useUnits } from "../../api/queries";
+import { useCategories, useStoreProducts, useUnits } from "../../api/queries";
 import { Modal } from "../../components/Modal";
 import { MasterImport } from "../../components/MasterImport";
 import { Product } from "../../types";
@@ -23,7 +23,7 @@ export function Products() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const { data: products, isLoading } = useProducts(false);
+  const { data: products, isLoading } = useStoreProducts(false);
   const { data: categories } = useCategories();
   const { data: units } = useUnits();
 

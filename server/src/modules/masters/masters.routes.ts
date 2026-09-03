@@ -256,6 +256,8 @@ productsRouter.get(
     if (req.query.sellable === "true") conditions.push("p.sell_price IS NOT NULL");
     // Food item = priced AND not stock-tracked (prepared food, cooked from raw materials).
     if (req.query.foodItem === "true") conditions.push("p.sell_price IS NOT NULL AND p.track_canteen_stock = FALSE");
+    // Store products only = raw materials (non-food categories).
+    if (req.query.storeOnly === "true") conditions.push("c.is_food = FALSE");
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const products = await query(pool, `${PRODUCT_SELECT} ${where} ORDER BY p.name ASC`);
     res.json(products);

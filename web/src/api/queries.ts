@@ -9,6 +9,13 @@ export function useProducts(activeOnly = true) {
   });
 }
 
+export function useStoreProducts(activeOnly = true) {
+  return useQuery({
+    queryKey: ["products", "store", activeOnly],
+    queryFn: async () => (await api.get<Product[]>("/masters/products", { params: { storeOnly: "true", ...(activeOnly ? { active: "true" } : {}) } })).data,
+  });
+}
+
 /** Sellable products for POS / OT orders: only those with a price (raw
  * materials, which have no price, are excluded). */
 export function useSellableProducts() {
