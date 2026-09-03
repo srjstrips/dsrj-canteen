@@ -12,8 +12,6 @@ const emptyForm = {
   categoryId: "",
   unitId: "",
   minStockLevel: "0",
-  reorderLevel: "0",
-  trackCanteenStock: true,
   sellPrice: "",
 };
 
@@ -34,8 +32,7 @@ export function Products() {
         categoryId: form.categoryId,
         unitId: form.unitId,
         minStockLevel: Number(form.minStockLevel),
-        reorderLevel: Number(form.reorderLevel),
-        trackCanteenStock: form.trackCanteenStock,
+        trackCanteenStock: true,
         sellPrice: form.sellPrice ? Number(form.sellPrice) : null,
       };
       if (editing) return api.patch(`/masters/products/${editing.id}`, payload);
@@ -67,8 +64,6 @@ export function Products() {
       categoryId: p.categoryId,
       unitId: p.unitId,
       minStockLevel: p.minStockLevel,
-      reorderLevel: p.reorderLevel,
-      trackCanteenStock: p.trackCanteenStock,
       sellPrice: p.sellPrice ?? "",
     });
     setOpen(true);
@@ -111,9 +106,6 @@ export function Products() {
               <th>Category</th>
               <th>Unit</th>
               <th>Min Stock</th>
-              <th>Reorder Level</th>
-              <th>Sell Price</th>
-              <th>Canteen Stock Tracked</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -121,7 +113,7 @@ export function Products() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={9}>Loading…</td>
+                <td colSpan={5}>Loading…</td>
               </tr>
             )}
             {products?.map((p) => (
@@ -130,9 +122,6 @@ export function Products() {
                 <td>{p.category.name}</td>
                 <td>{p.unit.symbol}</td>
                 <td>{p.minStockLevel}</td>
-                <td>{p.reorderLevel}</td>
-                <td>{p.sellPrice ?? "—"}</td>
-                <td>{p.trackCanteenStock ? "Yes" : "No (ingredient)"}</td>
                 <td>{p.active ? <span className="badge-success">Active</span> : <span className="badge-danger">Inactive</span>}</td>
                 <td className="space-x-2 whitespace-nowrap">
                   <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => openEdit(p)}>
@@ -180,42 +169,17 @@ export function Products() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Minimum Stock Level</label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                step="0.001"
-                value={form.minStockLevel}
-                onChange={(e) => setForm({ ...form, minStockLevel: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label">Reorder Level</label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                step="0.001"
-                value={form.reorderLevel}
-                onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })}
-              />
-            </div>
-          </div>
           <div>
-            <label className="label">Sell Price (for direct-sale / POS products)</label>
-            <input className="input" type="number" min={0} step="0.01" value={form.sellPrice} onChange={(e) => setForm({ ...form, sellPrice: e.target.value })} />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
+            <label className="label">Minimum Stock Level</label>
             <input
-              type="checkbox"
-              checked={form.trackCanteenStock}
-              onChange={(e) => setForm({ ...form, trackCanteenStock: e.target.checked })}
+              className="input"
+              type="number"
+              min={0}
+              step="0.001"
+              value={form.minStockLevel}
+              onChange={(e) => setForm({ ...form, minStockLevel: e.target.value })}
             />
-            Draw down Canteen stock 1:1 when sold (uncheck for made-to-order items whose ingredients are tracked via Consumption instead)
-          </label>
+          </div>
           <button className="btn-primary w-full" type="submit" disabled={saveMutation.isPending}>
             {saveMutation.isPending ? "Saving…" : "Save Product"}
           </button>
