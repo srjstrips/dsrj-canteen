@@ -29,7 +29,6 @@ import { ReceivedStock } from "./pages/canteen/ReceivedStock";
 import { CanteenStock } from "./pages/canteen/CanteenStock";
 import { Billing } from "./pages/canteen/Billing";
 import { FoodItems } from "./pages/canteen/FoodItems";
-import { FoodCategories } from "./pages/canteen/FoodCategories";
 import { DailySales } from "./pages/canteen/DailySales";
 import { Consumption } from "./pages/canteen/Consumption";
 import { Wastage } from "./pages/canteen/Wastage";
@@ -96,7 +95,6 @@ export function App() {
             <Route path="/canteen/received-stock" element={<ReceivedStock />} />
             <Route path="/canteen/stock" element={<CanteenStock />} />
             <Route path="/canteen/billing" element={<Billing />} />
-            <Route path="/canteen/food-categories" element={<FoodCategories />} />
             <Route path="/canteen/food-items" element={<FoodItems />} />
             <Route path="/canteen/daily-sales" element={<DailySales />} />
             <Route path="/canteen/consumption" element={<Consumption />} />

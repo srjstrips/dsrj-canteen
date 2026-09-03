@@ -4,15 +4,28 @@ import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useCategories, useUnits } from "../../api/queries";
 import { MasterImport } from "../../components/MasterImport";
+import { Modal } from "../../components/Modal";
+import { Category } from "../../types";
 
 export function CategoriesUnits() {
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
   const { data: units } = useUnits();
+
+  // Add category
   const [categoryName, setCategoryName] = useState("");
   const [categoryType, setCategoryType] = useState<"store" | "canteen">("store");
+
+  // Edit category
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState<"store" | "canteen">("store");
+
+  // Add unit
   const [unitName, setUnitName] = useState("");
   const [unitSymbol, setUnitSymbol] = useState("");
+
+  const invalidateCategories = () => queryClient.invalidateQueries({ queryKey: ["categories"] });
 
   const addCategory = useMutation({
     mutationFn: async () => api.post("/masters/categories", { name: categoryName, isFood: categoryType === "canteen" }),
@@ -20,7 +33,17 @@ export function CategoriesUnits() {
       toast.success("Category added");
       setCategoryName("");
       setCategoryType("store");
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      invalidateCategories();
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
+  const saveCategory = useMutation({
+    mutationFn: async () => api.patch(`/masters/categories/${editingCategory!.id}`, { name: editName.trim(), isFood: editType === "canteen" }),
+    onSuccess: () => {
+      toast.success("Category updated");
+      setEditingCategory(null);
+      invalidateCategories();
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
@@ -38,7 +61,7 @@ export function CategoriesUnits() {
 
   const toggleCategory = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => api.patch(`/masters/categories/${id}`, { active }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    onSuccess: invalidateCategories,
   });
 
   const toggleUnit = useMutation({
@@ -46,11 +69,17 @@ export function CategoriesUnits() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["units"] }),
   });
 
+  function openEdit(c: Category) {
+    setEditingCategory(c);
+    setEditName(c.name);
+    setEditType(c.isFood ? "canteen" : "store");
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">Categories & Units</h1>
-        <p className="text-sm text-muted">Shared master data used by the Product Master</p>
+        <p className="text-sm text-muted">Manage Store and Canteen categories, and units of measurement</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -97,7 +126,10 @@ export function CategoriesUnits() {
                       : <span className="badge-info">Store</span>}
                   </td>
                   <td>{c.active ? <span className="badge-success">Active</span> : <span className="badge-danger">Inactive</span>}</td>
-                  <td className="text-right">
+                  <td className="space-x-1 text-right whitespace-nowrap">
+                    <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => openEdit(c)}>
+                      Edit
+                    </button>
                     <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => toggleCategory.mutate({ id: c.id, active: !c.active })}>
                       {c.active ? "Deactivate" : "Activate"}
                     </button>
@@ -133,9 +165,7 @@ export function CategoriesUnits() {
             <tbody>
               {units?.map((u) => (
                 <tr key={u.id}>
-                  <td>
-                    {u.name} ({u.symbol})
-                  </td>
+                  <td>{u.name} ({u.symbol})</td>
                   <td>{u.active ? <span className="badge-success">Active</span> : <span className="badge-danger">Inactive</span>}</td>
                   <td className="text-right">
                     <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => toggleUnit.mutate({ id: u.id, active: !u.active })}>
@@ -148,6 +178,31 @@ export function CategoriesUnits() {
           </table>
         </div>
       </div>
+
+      <Modal open={!!editingCategory} onClose={() => setEditingCategory(null)} title="Edit Category">
+        <form
+          className="space-y-3"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            saveCategory.mutate();
+          }}
+        >
+          <div>
+            <label className="label">Category Name</label>
+            <input className="input" required value={editName} onChange={(e) => setEditName(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Type</label>
+            <select className="input" value={editType} onChange={(e) => setEditType(e.target.value as "store" | "canteen")}>
+              <option value="store">Store (raw materials)</option>
+              <option value="canteen">Canteen (food menu)</option>
+            </select>
+          </div>
+          <button className="btn-primary w-full" type="submit" disabled={saveCategory.isPending}>
+            {saveCategory.isPending ? "Saving…" : "Save Changes"}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }

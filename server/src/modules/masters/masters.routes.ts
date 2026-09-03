@@ -34,6 +34,7 @@ export const categoriesRouter = Router();
 categoriesRouter.use(requireAuth);
 
 const nameSchema = z.object({ name: z.string().min(1), active: z.boolean().optional(), isFood: z.boolean().optional() });
+const nameSchemaPatch = nameSchema.partial();
 
 categoriesRouter.get(
   "/",
@@ -61,16 +62,16 @@ categoriesRouter.post(
 categoriesRouter.patch(
   "/:id",
   requireRole(Role.ADMIN),
-  validateBody(nameSchema.partial()),
+  validateBody(nameSchemaPatch),
   asyncHandler(async (req, res) => {
-    const body = req.body as Partial<z.infer<typeof nameSchema>>;
+    const body = req.body as z.infer<typeof nameSchemaPatch>;
     const before = await queryOne(pool, "SELECT * FROM categories WHERE id = $1", [req.params.id]);
     if (!before) throw ApiError.notFound("Category not found");
     const category = await queryOne(
       pool,
-      `UPDATE categories SET name = COALESCE($2, name), active = COALESCE($3, active), updated_at = now()
+      `UPDATE categories SET name = COALESCE($2, name), active = COALESCE($3, active), is_food = COALESCE($4, is_food), updated_at = now()
        WHERE id = $1 RETURNING *`,
-      [req.params.id, body.name ?? null, body.active ?? null]
+      [req.params.id, body.name ?? null, body.active ?? null, body.isFood ?? null]
     );
     await writeAudit(pool, { entity: "Category", entityId: category!.id as string, action: "UPDATE", actorId: req.user!.sub, before, after: category });
     res.json(category);
