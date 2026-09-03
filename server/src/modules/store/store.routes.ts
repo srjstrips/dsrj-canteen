@@ -293,7 +293,7 @@ storeRouter.get(
        JOIN categories c ON c.id = p.category_id
        JOIN units u ON u.id = p.unit_id
        LEFT JOIN store_stock_balances b ON b.product_id = p.id
-       WHERE p.active = TRUE`
+       WHERE p.active = TRUE AND c.is_food = FALSE`
     );
     const low = rows.filter((p) => D(p.quantity ?? 0).lte(D(p.minStockLevel)));
     res.json(low);

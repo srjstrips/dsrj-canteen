@@ -280,7 +280,7 @@ export async function getCanteenStockSummary(from: Date, to: Date): Promise<Cant
      JOIN categories c ON c.id = p.category_id
      JOIN units u ON u.id = p.unit_id
      LEFT JOIN canteen_stock_balances b ON b.product_id = p.id
-     WHERE p.active = TRUE
+     WHERE p.active = TRUE AND c.is_food = FALSE
      ORDER BY p.name ASC`
   );
 
