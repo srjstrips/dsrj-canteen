@@ -2,13 +2,13 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
-import { useSuppliers } from "../../api/queries";
+import { useSuppliers, useStoreProducts } from "../../api/queries";
 import { Combobox } from "../../components/Combobox";
-import { ProductSelect } from "../../components/ProductSelect";
 import { BulkImport } from "../../components/BulkImport";
 import { formatCurrency, formatDate, todayInput } from "../../lib/format";
 
 interface LineItem {
+  categoryId: string;
   productId: string;
   quantity: string;
   rate: string;
@@ -25,12 +25,13 @@ interface InwardRow {
 }
 
 function emptyLine(): LineItem {
-  return { productId: "", quantity: "", rate: "" };
+  return { categoryId: "", productId: "", quantity: "", rate: "" };
 }
 
 export function StockInward() {
   const queryClient = useQueryClient();
   const { data: suppliers } = useSuppliers();
+  const { data: allProducts } = useStoreProducts(true);
   const [supplierId, setSupplierId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [inwardDate, setInwardDate] = useState(todayInput());
@@ -85,6 +86,7 @@ export function StockInward() {
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!supplierId) return toast.error("Supplier is required");
+    if (lines.some((l) => !l.categoryId)) return toast.error("Category is required for every line");
     if (lines.some((l) => !l.productId)) return toast.error("Product is required for every line");
     if (lines.some((l) => Number(l.quantity) <= 0)) return toast.error("Quantity must be greater than 0");
     if (lines.some((l) => Number(l.rate) < 0)) return toast.error("Rate cannot be negative");
@@ -124,11 +126,36 @@ export function StockInward() {
         <div className="space-y-2">
           {lines.map((line, i) => {
             const lineTotal = (Number(line.quantity) || 0) * (Number(line.rate) || 0);
+            const categories = [...new Map((allProducts ?? []).map((p) => [p.category.id, p.category.name])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+            const categoryProducts = (allProducts ?? []).filter((p) => p.category.id === line.categoryId);
             return (
-              <div key={i} className="grid grid-cols-1 items-end gap-2 rounded-lg border border-border p-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+              <div key={i} className="grid grid-cols-1 items-end gap-2 rounded-lg border border-border p-3 md:grid-cols-[1fr_2fr_1fr_1fr_1fr_auto]">
+                <div>
+                  <label className="label">Category</label>
+                  <select
+                    className="input"
+                    value={line.categoryId}
+                    onChange={(e) => updateLine(i, { categoryId: e.target.value, productId: "" })}
+                  >
+                    <option value="">Select…</option>
+                    {categories.map(([id, name]) => (
+                      <option key={id} value={id}>{name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="label">Product</label>
-                  <ProductSelect value={line.productId} onChange={(productId) => updateLine(i, { productId })} storeOnly />
+                  <select
+                    className="input"
+                    value={line.productId}
+                    onChange={(e) => updateLine(i, { productId: e.target.value })}
+                    disabled={!line.categoryId}
+                  >
+                    <option value="">Select…</option>
+                    {categoryProducts.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.unit.symbol})</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="label">Quantity</label>
