@@ -18,6 +18,7 @@ import { resetRouter } from "./modules/admin/reset.routes";
 import { importsRouter } from "./modules/imports/imports.routes";
 import { tokensRouter } from "./modules/tokens/tokens.routes";
 import { labourRouter } from "./modules/tokens/labour.routes";
+import { notificationsRouter } from "./modules/notifications/notifications.routes";
 
 export function createApp() {
   const app = express();
@@ -48,6 +49,7 @@ export function createApp() {
   app.use("/api/imports", importsRouter);
   app.use("/api/tokens", tokensRouter);
   app.use("/api/labour", labourRouter);
+  app.use("/api/notifications", notificationsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -7,6 +7,7 @@ import { validateBody } from "../../middleware/validate";
 import { ApiError } from "../../utils/ApiError";
 import { writeAudit } from "../../utils/audit";
 import { BillingAccountType, ManagedOrderStatus, ManagedOrderType, Role } from "../../types/domain";
+import { sendNotification } from "../../utils/fcm";
 import {
   addExtras,
   deleteOrder,
@@ -167,6 +168,12 @@ managedRouter.post(
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof placeOrdersSchema>;
     const orders = await placeOrders({ ...body, placedById: req.user!.sub });
+    sendNotification({
+      type: "ORDER_PLACED",
+      title: "New Order Placed",
+      body: `${orders.length} ${body.orderType} order(s) placed by HOD`,
+      targetRoles: ["CANTEEN"],
+    }).catch(() => {});
     res.status(201).json(orders);
   })
 );

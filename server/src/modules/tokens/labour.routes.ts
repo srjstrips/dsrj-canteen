@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
 import { ApiError } from "../../utils/ApiError";
 import { Role } from "../../types/domain";
+import { sendNotification } from "../../utils/fcm";
 
 export const labourRouter = Router();
 labourRouter.use(requireAuth);
@@ -74,6 +75,12 @@ labourRouter.post(
       }
 
       await client.query("COMMIT");
+      sendNotification({
+        type: "CONTRACTOR_LABOUR",
+        title: "Contractor Labour Submitted",
+        body: `${count} labour(s) submitted for ${entryDate} — mark as served when they eat`,
+        targetRoles: ["CANTEEN"],
+      }).catch(() => {});
       res.status(201).json({ entries });
     } catch (err) {
       await client.query("ROLLBACK");

@@ -1,16 +1,28 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Bell } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { api } from "../api/client";
 import { visibleSections } from "./nav";
 import { useOnlineStatus } from "../offline/useOnlineStatus";
 import { usePendingSyncCount } from "../offline/offlineQueue";
+import { usePushToken } from "../hooks/usePushToken";
 
 export function Layout() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("dsrj_sidebar_collapsed") === "1");
+  const navigate = useNavigate();
   const online = useOnlineStatus();
   const pendingCount = usePendingSyncCount();
+  usePushToken();
+
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: ["notifications", "unread-count"],
+    queryFn: () => api.get("/notifications/unread-count").then((r) => r.data.count),
+    refetchInterval: 30_000,
+  });
 
   function toggleCollapsed() {
     setCollapsed((c) => {
@@ -89,6 +101,18 @@ export function Layout() {
             {pendingCount > 0 && <span className="badge-success">{pendingCount} bill(s) pending sync</span>}
           </div>
           <div className="flex items-center gap-3">
+            <button
+              className="relative rounded-lg p-2 hover:bg-background"
+              onClick={() => navigate("/notifications")}
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5 text-ink" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
             <div className="text-right">
               <p className="text-sm font-semibold leading-tight">{user.name}</p>
               <p className="text-xs leading-tight text-muted">{user.role}</p>

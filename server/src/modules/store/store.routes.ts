@@ -8,6 +8,7 @@ import { validateBody } from "../../middleware/validate";
 import { ApiError } from "../../utils/ApiError";
 import { D } from "../../utils/money";
 import { Role } from "../../types/domain";
+import { sendNotification } from "../../utils/fcm";
 import {
   INWARD_SELECT,
   ISSUE_SELECT,
@@ -130,6 +131,12 @@ storeRouter.post(
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof issueSchema>;
     const result = await issueStockToCanteen({ ...body, createdById: req.user!.sub });
+    sendNotification({
+      type: "STOCK_RECEIVED",
+      title: "Stock Issued to Canteen",
+      body: `${body.items.length} product(s) issued to canteen by store`,
+      targetRoles: ["CANTEEN"],
+    }).catch(() => {});
     res.status(201).json(result);
   })
 );

@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
 import { ApiError } from "../../utils/ApiError";
 import { Role } from "../../types/domain";
+import { sendNotification } from "../../utils/fcm";
 
 export const tokensRouter = Router();
 tokensRouter.use(requireAuth);
@@ -163,6 +164,17 @@ tokensRouter.post(
        VALUES ($1, 'TOPUP', $2, $3, $4, $5, $6)`,
       [req.params.accountId, quantity, pricePerToken, newBalance, note ?? null, req.user!.sub]
     );
+
+    // Notify all CONTRACTOR users linked to this account
+    const acc = await query<{ id: string }>(pool, `SELECT id FROM users WHERE account_id = $1 AND active = TRUE`, [req.params.accountId]);
+    if (acc.length > 0) {
+      sendNotification({
+        type: "TOKEN_TOPUP",
+        title: "Tokens Added",
+        body: `${quantity} token(s) added to your account. New balance: ${newBalance}`,
+        userIds: acc.map((u) => u.id),
+      }).catch(() => {});
+    }
 
     res.json({ balance: newBalance });
   })

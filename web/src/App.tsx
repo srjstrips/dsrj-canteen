@@ -35,6 +35,7 @@ import { DailySales } from "./pages/canteen/DailySales";
 import { Consumption } from "./pages/canteen/Consumption";
 import { Wastage } from "./pages/canteen/Wastage";
 import { CanteenReports } from "./pages/canteen/CanteenReports";
+import { Notifications } from "./pages/notifications/Notifications";
 import { wireAutoSync, syncPendingSales } from "./offline/offlineQueue";
 
 function HomeRedirect() {
@@ -96,6 +97,8 @@ export function App() {
           <Route element={<ProtectedRoute allow={["CONTRACTOR"]} />}>
             <Route path="/contractor/portal" element={<ContractorPortal />} />
           </Route>
+
+          <Route path="/notifications" element={<Notifications />} />
 
           <Route element={<ProtectedRoute allow={["CANTEEN"]} />}>
             <Route path="/canteen/dashboard" element={<CanteenDashboard />} />

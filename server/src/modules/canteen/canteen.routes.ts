@@ -5,6 +5,7 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
 import { CanteenLedgerTxnType, PaymentMode, Role, StockArea, WastageReason } from "../../types/domain";
+import { sendNotification } from "../../utils/fcm";
 import {
   getCanteenLedger,
   getCanteenStockSummary,
@@ -214,6 +215,12 @@ canteenRouter.post(
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof saleSchema>;
     const sale = await createSale({ ...body, createdById: req.user!.sub });
+    sendNotification({
+      type: "POS_SALE",
+      title: "New POS Sale",
+      body: `Bill recorded at POS`,
+      targetRoles: ["CANTEEN"],
+    }).catch(() => {});
     res.status(201).json(sale);
   })
 );
