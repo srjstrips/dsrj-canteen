@@ -144,8 +144,6 @@ const IMPORTERS: Record<string, ImporterConfig> = {
       { header: "Unit *", width: 14 },
       { header: "Sell Price", width: 14 },
       { header: "Min Stock Level", width: 16 },
-      { header: "Reorder Level", width: 16 },
-      { header: "Track Canteen Stock (Y/N)", width: 24 },
     ],
     buildReference: async () => {
       const cats = await query<{ name: string }>(pool, "SELECT name FROM categories WHERE active = TRUE ORDER BY name");

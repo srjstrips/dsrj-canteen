@@ -15,8 +15,9 @@ async function activeProductsForTemplate(): Promise<TemplateProduct[]> {
     `SELECT p.id, p.name, u.symbol AS "unitSymbol", b.avg_rate AS "currentAvgRate"
      FROM products p
      JOIN units u ON u.id = p.unit_id
+     JOIN categories c ON c.id = p.category_id
      LEFT JOIN store_stock_balances b ON b.product_id = p.id
-     WHERE p.active = TRUE
+     WHERE p.active = TRUE AND c.is_food = FALSE
      ORDER BY p.name ASC`
   );
 }

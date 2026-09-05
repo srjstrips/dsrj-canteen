@@ -128,7 +128,7 @@ export function StockInward() {
               <div key={i} className="grid grid-cols-1 items-end gap-2 rounded-lg border border-border p-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto]">
                 <div>
                   <label className="label">Product</label>
-                  <ProductSelect value={line.productId} onChange={(productId) => updateLine(i, { productId })} />
+                  <ProductSelect value={line.productId} onChange={(productId) => updateLine(i, { productId })} storeOnly />
                 </div>
                 <div>
                   <label className="label">Quantity</label>

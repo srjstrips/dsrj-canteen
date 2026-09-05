@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 export interface ComboOption {
   value: string;
   label: string;
+  /** Optional group header — items with the same group string are visually grouped. */
+  group?: string;
 }
 
 interface ComboboxProps {
@@ -82,17 +84,24 @@ export function Combobox({ value, onChange, options, placeholder = "Type to sear
       {open && (
         <div className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-border bg-card shadow-lg">
           {filtered.length === 0 && <p className="px-3 py-2 text-sm text-muted">No matches</p>}
-          {filtered.map((opt, i) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`block w-full px-3 py-2 text-left text-sm ${i === highlight ? "bg-primary-light text-primary" : "hover:bg-background"} ${opt.value === value ? "font-semibold" : ""}`}
-              onMouseEnter={() => setHighlight(i)}
-              onClick={() => choose(opt)}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {filtered.map((opt, i) => {
+            const showGroupHeader = opt.group && (i === 0 || filtered[i - 1].group !== opt.group);
+            return (
+              <div key={opt.value}>
+                {showGroupHeader && (
+                  <p className="px-3 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">{opt.group}</p>
+                )}
+                <button
+                  type="button"
+                  className={`block w-full px-3 py-2 text-left text-sm ${i === highlight ? "bg-primary-light text-primary" : "hover:bg-background"} ${opt.value === value ? "font-semibold" : ""}`}
+                  onMouseEnter={() => setHighlight(i)}
+                  onClick={() => choose(opt)}
+                >
+                  {opt.label}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
