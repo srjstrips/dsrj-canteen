@@ -16,6 +16,7 @@ import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { managedRouter } from "./modules/managed/managed.routes";
 import { resetRouter } from "./modules/admin/reset.routes";
 import { importsRouter } from "./modules/imports/imports.routes";
+import { tokensRouter } from "./modules/tokens/tokens.routes";
 
 export function createApp() {
   const app = express();
@@ -44,6 +45,7 @@ export function createApp() {
   app.use("/api/managed", managedRouter);
   app.use("/api/admin", resetRouter);
   app.use("/api/imports", importsRouter);
+  app.use("/api/tokens", tokensRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

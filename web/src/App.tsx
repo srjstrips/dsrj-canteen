@@ -17,6 +17,7 @@ import { PlaceOrders } from "./pages/hod/PlaceOrders";
 import { Approvals } from "./pages/hod/Approvals";
 import { Statements } from "./pages/hod/Statements";
 import { ManagedOrders } from "./pages/canteen/ManagedOrders";
+import { ContractorTokens } from "./pages/canteen/ContractorTokens";
 import { StoreDashboard } from "./pages/store/StoreDashboard";
 import { StockInward } from "./pages/store/StockInward";
 import { StoreStock } from "./pages/store/StoreStock";
@@ -100,6 +101,7 @@ export function App() {
             <Route path="/canteen/consumption" element={<Consumption />} />
             <Route path="/canteen/wastage" element={<Wastage />} />
             <Route path="/canteen/managed-orders" element={<ManagedOrders />} />
+            <Route path="/canteen/contractor-tokens" element={<ContractorTokens />} />
             <Route path="/canteen/reports" element={<CanteenReports />} />
           </Route>
         </Route>

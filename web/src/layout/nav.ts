@@ -27,6 +27,7 @@ import {
   Building2,
   Scale,
   RotateCcw,
+  Ticket,
   type LucideIcon,
 } from "lucide-react";
 import { Role } from "../types";
@@ -71,6 +72,7 @@ export const navSections: NavSection[] = [
       { label: "Food Items (Menu)", to: "/canteen/food-items", icon: Sandwich, roles: ["CANTEEN"] },
       { label: "Billing / POS", to: "/canteen/billing", icon: ShoppingCart, roles: ["CANTEEN"] },
       { label: "OT / Guest / Contractor Orders", to: "/canteen/managed-orders", icon: ClipboardList, roles: ["CANTEEN"] },
+      { label: "Contractor Tokens", to: "/canteen/contractor-tokens", icon: Ticket, roles: ["CANTEEN"] },
       { label: "Daily Sales", to: "/canteen/daily-sales", icon: Wallet, roles: ["CANTEEN"] },
       { label: "Consumption", to: "/canteen/consumption", icon: Flame, roles: ["CANTEEN"] },
       { label: "Wastage", to: "/canteen/wastage", icon: Trash2, roles: ["CANTEEN"] },
