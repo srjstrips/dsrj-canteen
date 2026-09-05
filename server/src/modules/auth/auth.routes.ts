@@ -19,6 +19,7 @@ interface UserRow {
   role: Role;
   active: boolean;
   canEditOld: boolean;
+  accountId: string | null;
 }
 
 const loginSchema = z.object({
@@ -37,10 +38,10 @@ authRouter.post(
     const ok = await comparePassword(password, user.passwordHash);
     if (!ok) throw ApiError.unauthorized("Invalid username or password");
 
-    const token = signToken({ sub: user.id, role: user.role, name: user.name, username: user.username });
+    const token = signToken({ sub: user.id, role: user.role, name: user.name, username: user.username, accountId: user.accountId ?? undefined });
     res.json({
       token,
-      user: { id: user.id, name: user.name, username: user.username, role: user.role, canEditOld: user.canEditOld },
+      user: { id: user.id, name: user.name, username: user.username, role: user.role, canEditOld: user.canEditOld, accountId: user.accountId ?? null },
     });
   })
 );
@@ -51,6 +52,6 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const user = await queryOne<UserRow>(pool, "SELECT * FROM users WHERE id = $1", [req.user!.sub]);
     if (!user) throw ApiError.notFound("User not found");
-    res.json({ id: user.id, name: user.name, username: user.username, role: user.role, canEditOld: user.canEditOld });
+    res.json({ id: user.id, name: user.name, username: user.username, role: user.role, canEditOld: user.canEditOld, accountId: user.accountId ?? null });
   })
 );

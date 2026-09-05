@@ -88,6 +88,12 @@ export const navSections: NavSection[] = [
     ],
   },
   {
+    title: "Contractor",
+    items: [
+      { label: "My Token Balance", to: "/contractor/portal", icon: Ticket, roles: ["CONTRACTOR"] },
+    ],
+  },
+  {
     title: "Administration",
     items: [
       { label: "Users", to: "/admin/users", icon: Users, roles: [] },

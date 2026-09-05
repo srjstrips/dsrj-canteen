@@ -12,7 +12,7 @@ import { Role } from "../../types/domain";
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireRole(Role.ADMIN));
 
-const USER_COLUMNS = "id, name, username, role, active, can_edit_old, created_at, updated_at";
+const USER_COLUMNS = "id, name, username, role, active, can_edit_old, account_id, created_at, updated_at";
 
 interface UserRow {
   id: string;
@@ -21,6 +21,7 @@ interface UserRow {
   role: Role;
   active: boolean;
   canEditOld: boolean;
+  accountId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +43,7 @@ const createSchema = z.object({
   password: z.string().min(8),
   role: z.nativeEnum(Role),
   canEditOld: z.boolean().optional(),
+  accountId: z.string().uuid().optional().nullable(),
 });
 
 usersRouter.post(
@@ -52,8 +54,8 @@ usersRouter.post(
     const passwordHash = await hashPassword(body.password);
     const user = await queryOne<UserRow>(
       pool,
-      `INSERT INTO users (name, username, password_hash, role, can_edit_old) VALUES ($1, $2, $3, $4, COALESCE($5, FALSE)) RETURNING ${USER_COLUMNS}`,
-      [body.name, body.username.toLowerCase(), passwordHash, body.role, body.canEditOld ?? null]
+      `INSERT INTO users (name, username, password_hash, role, can_edit_old, account_id) VALUES ($1, $2, $3, $4, COALESCE($5, FALSE), $6) RETURNING ${USER_COLUMNS}`,
+      [body.name, body.username.toLowerCase(), passwordHash, body.role, body.canEditOld ?? null, body.accountId ?? null]
     );
     await writeAudit(pool, { entity: "User", entityId: user!.id, action: "CREATE", actorId: req.user!.sub, after: user });
     res.status(201).json(user);
@@ -66,6 +68,7 @@ const updateSchema = z.object({
   active: z.boolean().optional(),
   password: z.string().min(8).optional(),
   canEditOld: z.boolean().optional(),
+  accountId: z.string().uuid().optional().nullable(),
 });
 
 usersRouter.patch(
@@ -86,10 +89,11 @@ usersRouter.patch(
          active = COALESCE($4, active),
          password_hash = COALESCE($5, password_hash),
          can_edit_old = COALESCE($6, can_edit_old),
+         account_id = CASE WHEN $7::uuid IS NOT NULL THEN $7::uuid ELSE account_id END,
          updated_at = now()
        WHERE id = $1
        RETURNING ${USER_COLUMNS}`,
-      [req.params.id, body.name ?? null, body.role ?? null, body.active ?? null, passwordHash ?? null, body.canEditOld ?? null]
+      [req.params.id, body.name ?? null, body.role ?? null, body.active ?? null, passwordHash ?? null, body.canEditOld ?? null, body.accountId ?? null]
     );
     await writeAudit(pool, { entity: "User", entityId: user!.id, action: "UPDATE", actorId: req.user!.sub, before, after: user });
     res.json(user);

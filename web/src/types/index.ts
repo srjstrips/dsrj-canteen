@@ -1,4 +1,4 @@
-export type Role = "ADMIN" | "STORE" | "CANTEEN" | "HOD";
+export type Role = "ADMIN" | "STORE" | "CANTEEN" | "HOD" | "CONTRACTOR";
 
 export type BillingAccountType = "COMPANY" | "CONTRACTOR";
 
@@ -48,6 +48,7 @@ export interface AuthUser {
   username: string;
   role: Role;
   canEditOld?: boolean;
+  accountId?: string | null;
 }
 
 export interface Category {

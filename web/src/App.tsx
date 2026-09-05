@@ -18,6 +18,7 @@ import { Approvals } from "./pages/hod/Approvals";
 import { Statements } from "./pages/hod/Statements";
 import { ManagedOrders } from "./pages/canteen/ManagedOrders";
 import { ContractorTokens } from "./pages/canteen/ContractorTokens";
+import { ContractorPortal } from "./pages/contractor/ContractorPortal";
 import { StoreDashboard } from "./pages/store/StoreDashboard";
 import { StockInward } from "./pages/store/StockInward";
 import { StoreStock } from "./pages/store/StoreStock";
@@ -42,6 +43,7 @@ function HomeRedirect() {
   if (user.role === "STORE") return <Navigate to="/store/dashboard" replace />;
   if (user.role === "CANTEEN") return <Navigate to="/canteen/dashboard" replace />;
   if (user.role === "HOD") return <Navigate to="/hod/place-orders" replace />;
+  if (user.role === "CONTRACTOR") return <Navigate to="/contractor/portal" replace />;
   return <Navigate to="/admin/dashboard" replace />;
 }
 
@@ -89,6 +91,10 @@ export function App() {
           </Route>
           <Route element={<ProtectedRoute allow={["STORE", "CANTEEN"]} />}>
             <Route path="/store/stock" element={<StoreStock />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allow={["CONTRACTOR"]} />}>
+            <Route path="/contractor/portal" element={<ContractorPortal />} />
           </Route>
 
           <Route element={<ProtectedRoute allow={["CANTEEN"]} />}>

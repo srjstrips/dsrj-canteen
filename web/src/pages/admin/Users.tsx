@@ -5,12 +5,14 @@ import { api, apiErrorMessage } from "../../api/client";
 import { Modal } from "../../components/Modal";
 import { PasswordInput } from "../../components/PasswordInput";
 import { AuthUser, Role } from "../../types";
+import { useBillingAccounts } from "../../api/queries";
 import { formatDate } from "../../lib/format";
 
 export function Users() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", username: "", password: "", role: "STORE" as Role });
+  const [form, setForm] = useState({ name: "", username: "", password: "", role: "STORE" as Role, accountId: "" });
+  const { data: billingAccounts } = useBillingAccounts({ type: "CONTRACTOR", activeOnly: true });
 
   const { data: users, isLoading } = useQuery({
     queryKey: ["users"],
@@ -18,12 +20,15 @@ export function Users() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async () => api.post("/admin/users", form),
+    mutationFn: async () => api.post("/admin/users", {
+      ...form,
+      accountId: form.accountId || null,
+    }),
     onSuccess: () => {
       toast.success("User created");
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setOpen(false);
-      setForm({ name: "", username: "", password: "", role: "STORE" });
+      setForm({ name: "", username: "", password: "", role: "STORE", accountId: "" });
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
@@ -137,13 +142,31 @@ export function Users() {
           </div>
           <div>
             <label className="label">Role</label>
-            <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
+            <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, accountId: "" })}>
               <option value="ADMIN">Admin</option>
               <option value="STORE">Store User</option>
               <option value="CANTEEN">Canteen Manager</option>
               <option value="HOD">HOD / HR</option>
+              <option value="CONTRACTOR">Contractor</option>
             </select>
           </div>
+          {form.role === "CONTRACTOR" && (
+            <div>
+              <label className="label">Linked Contractor Account *</label>
+              <select
+                className="input"
+                required
+                value={form.accountId}
+                onChange={(e) => setForm({ ...form, accountId: e.target.value })}
+              >
+                <option value="">Select contractor…</option>
+                {(billingAccounts ?? []).map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted">This links the login to the contractor's token balance.</p>
+            </div>
+          )}
           <button className="btn-primary w-full" type="submit" disabled={createMutation.isPending}>
             {createMutation.isPending ? "Creating…" : "Create User"}
           </button>

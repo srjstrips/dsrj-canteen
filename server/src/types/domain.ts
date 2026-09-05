@@ -2,7 +2,7 @@
 // schema's `enum` blocks. Each mirrors a Postgres ENUM type created in
 // server/db/migrations/0001_init.sql — keep them in sync if that ever changes.
 
-export const Role = { ADMIN: "ADMIN", STORE: "STORE", CANTEEN: "CANTEEN", HOD: "HOD" } as const;
+export const Role = { ADMIN: "ADMIN", STORE: "STORE", CANTEEN: "CANTEEN", HOD: "HOD", CONTRACTOR: "CONTRACTOR" } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
 export const PaymentMode = { CASH: "CASH", UPI: "UPI", CREDIT: "CREDIT" } as const;
