@@ -1,10 +1,11 @@
-import * as admin from "firebase-admin";
+import { initializeApp, getApps, getApp } from "firebase-admin/app";
+import { cert } from "firebase-admin/app";
+import { getMessaging, SendResponse } from "firebase-admin/messaging";
 import { pool, query } from "../db/pool";
 
-// Initialise once
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
       projectId: "drsrj-canteen",
       clientEmail: "firebase-adminsdk-fbsvc@drsrj-canteen.iam.gserviceaccount.com",
       privateKey:
@@ -26,16 +27,12 @@ export interface NotifyPayload {
   title: string;
   body: string;
   data?: Record<string, string>;
-  /** target user IDs — if omitted, targetRoles must be set */
   userIds?: string[];
-  /** send to all active users with these roles */
   targetRoles?: string[];
 }
 
-/** Save notification to DB + fire FCM push to all matched users' devices */
 export async function sendNotification(payload: NotifyPayload): Promise<void> {
   try {
-    // Resolve target user IDs
     let userIds = payload.userIds ?? [];
 
     if (payload.targetRoles && payload.targetRoles.length > 0) {
@@ -50,7 +47,6 @@ export async function sendNotification(payload: NotifyPayload): Promise<void> {
 
     if (userIds.length === 0) return;
 
-    // Insert notifications for all target users
     for (const userId of userIds) {
       await pool.query(
         `INSERT INTO notifications (user_id, type, title, body, data)
@@ -59,7 +55,6 @@ export async function sendNotification(payload: NotifyPayload): Promise<void> {
       );
     }
 
-    // Get FCM tokens for all target users
     const tokenRows = await query<{ token: string }>(
       pool,
       `SELECT token FROM fcm_tokens WHERE user_id = ANY($1)`,
@@ -69,13 +64,13 @@ export async function sendNotification(payload: NotifyPayload): Promise<void> {
     if (tokenRows.length === 0) return;
 
     const tokens = tokenRows.map((r) => r.token);
-
-    // Send FCM push in batches of 500
+    const messaging = getMessaging(getApp());
     const batchSize = 500;
+
     for (let i = 0; i < tokens.length; i += batchSize) {
       const batch = tokens.slice(i, i + batchSize);
       try {
-        const response = await admin.messaging().sendEachForMulticast({
+        const response = await messaging.sendEachForMulticast({
           tokens: batch,
           notification: { title: payload.title, body: payload.body },
           data: { type: payload.type, ...(payload.data ?? {}) },
@@ -90,18 +85,20 @@ export async function sendNotification(payload: NotifyPayload): Promise<void> {
           },
         });
 
-        // Remove invalid tokens
-        const invalidTokens: string[] = [];
-        response.responses.forEach((r, idx) => {
-          if (!r.success && (r.error?.code === "messaging/invalid-registration-token" || r.error?.code === "messaging/registration-token-not-registered")) {
-            invalidTokens.push(batch[idx]);
-          }
-        });
+        const invalidTokens = response.responses
+          .map((r: SendResponse, idx: number) => ({ r, idx }))
+          .filter(({ r }) =>
+            !r.success &&
+            (r.error?.code === "messaging/invalid-registration-token" ||
+              r.error?.code === "messaging/registration-token-not-registered")
+          )
+          .map(({ idx }) => batch[idx]);
+
         if (invalidTokens.length > 0) {
           await pool.query(`DELETE FROM fcm_tokens WHERE token = ANY($1)`, [invalidTokens]);
         }
       } catch {
-        // FCM errors should not break the main flow
+        // FCM errors must not break the main request
       }
     }
   } catch {
