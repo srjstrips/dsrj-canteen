@@ -20,7 +20,10 @@ export function ManagedOrders() {
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["managed-orders", "canteen"],
-    queryFn: async () => (await api.get<ManagedOrder[]>("/managed/orders")).data,
+    queryFn: async () => {
+      const rows = (await api.get<ManagedOrder[]>("/managed/orders")).data;
+      return rows.filter((o) => o.orderType === "OT" || o.orderType === "GUEST");
+    },
     refetchInterval: 15000,
   });
 
@@ -53,7 +56,7 @@ export function ManagedOrders() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">OT / Guest / Contractor Orders</h1>
+        <h1 className="text-xl font-bold">OT / Guest Orders</h1>
         <p className="text-sm text-muted">Find the diner by name, serve their order, and record any extra food eaten.</p>
       </div>
 
