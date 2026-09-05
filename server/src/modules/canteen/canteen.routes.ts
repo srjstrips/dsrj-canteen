@@ -38,6 +38,7 @@ function rangeFromQuery(query: Record<string, string | undefined>) {
 
 canteenRouter.get(
   "/received-stock",
+  requireRole(Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
     const received = await query(
@@ -62,6 +63,7 @@ canteenRouter.get(
 
 canteenRouter.get(
   "/stock",
+  requireRole(Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
     res.json(await getCanteenStockSummary(from, to));
@@ -70,6 +72,7 @@ canteenRouter.get(
 
 canteenRouter.get(
   "/ledger/:productId",
+  requireRole(Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = req.query as Record<string, string | undefined>;
     const txnType = req.query.txnType as CanteenLedgerTxnType | undefined;
@@ -124,6 +127,7 @@ canteenRouter.post(
 
 canteenRouter.get(
   "/wastage",
+  requireRole(Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
     const rows = await query(
@@ -227,6 +231,7 @@ canteenRouter.post(
 
 canteenRouter.get(
   "/sales",
+  requireRole(Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
     const sales = await query(pool, `${SALE_SELECT} WHERE s.bill_date >= $1 AND s.bill_date <= $2 ORDER BY s.bill_time DESC`, [from, to]);
@@ -236,6 +241,7 @@ canteenRouter.get(
 
 canteenRouter.get(
   "/sales/daily-summary",
+  requireRole(Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = rangeFromQuery(req.query as Record<string, string | undefined>);
     res.json(await getDailySalesSummary(from, to));
@@ -248,6 +254,7 @@ canteenRouter.get(
 
 canteenRouter.get(
   "/dashboard",
+  requireRole(Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (_req, res) => {
     const today = new Date();
     const from = startOfDay(today);

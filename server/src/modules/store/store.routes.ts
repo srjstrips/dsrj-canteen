@@ -53,6 +53,7 @@ storeRouter.post(
 
 storeRouter.get(
   "/stock-inward",
+  requireRole(Role.STORE, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to, supplierId } = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
@@ -177,6 +178,7 @@ storeRouter.post(
 
 storeRouter.get(
   "/stock-issue",
+  requireRole(Role.STORE, Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
@@ -252,6 +254,7 @@ storeRouter.post(
 
 storeRouter.get(
   "/stock-return",
+  requireRole(Role.STORE, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
@@ -272,6 +275,7 @@ storeRouter.get(
 
 storeRouter.get(
   "/stock",
+  requireRole(Role.STORE, Role.CANTEEN, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = req.query as Record<string, string | undefined>;
     const today = new Date();
@@ -283,6 +287,7 @@ storeRouter.get(
 
 storeRouter.get(
   "/ledger/:productId",
+  requireRole(Role.STORE, Role.ADMIN),
   asyncHandler(async (req, res) => {
     const { from, to } = req.query as Record<string, string | undefined>;
     res.json(await getStoreLedger(req.params.productId, from ? new Date(from) : undefined, to ? new Date(to) : undefined));
@@ -291,6 +296,7 @@ storeRouter.get(
 
 storeRouter.get(
   "/low-stock",
+  requireRole(Role.STORE, Role.ADMIN),
   asyncHandler(async (_req, res) => {
     const rows = await query<{ quantity: string | null; minStockLevel: string }>(
       pool,
@@ -309,6 +315,7 @@ storeRouter.get(
 
 storeRouter.get(
   "/dashboard",
+  requireRole(Role.STORE, Role.ADMIN),
   asyncHandler(async (_req, res) => {
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());

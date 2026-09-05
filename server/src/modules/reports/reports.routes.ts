@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { pool, query } from "../../db/pool";
 import { asyncHandler } from "../../utils/asyncHandler";
-import { requireAuth } from "../../middleware/auth";
+import { requireAuth, requireRole } from "../../middleware/auth";
+import { Role } from "../../types/domain";
 import { INWARD_SELECT, ISSUE_SELECT, getStoreStockSummary } from "../store/store.service";
 import { getCanteenStockSummary } from "../canteen/canteen.service";
 import { getDailySalesSummary } from "../canteen/billing.service";
@@ -21,6 +22,7 @@ import {
 
 export const reportsRouter = Router();
 reportsRouter.use(requireAuth);
+reportsRouter.use(requireRole(Role.ADMIN, Role.STORE, Role.CANTEEN));
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());

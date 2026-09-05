@@ -45,6 +45,7 @@ const accountSchema = z.object({
 
 managedRouter.get(
   "/accounts",
+  requireRole(Role.ADMIN, Role.HOD, Role.CANTEEN),
   asyncHandler(async (req, res) => {
     const type = req.query.type as string | undefined;
     const activeOnly = req.query.active === "true";
@@ -122,6 +123,7 @@ managedRouter.delete(
 
 managedRouter.get(
   "/accounts/:id/statement",
+  requireRole(Role.ADMIN, Role.HOD),
   asyncHandler(async (req, res) => {
     const monthParam = req.query.month as string | undefined;
     const now = new Date();
@@ -180,6 +182,7 @@ managedRouter.post(
 
 managedRouter.get(
   "/orders",
+  requireRole(Role.ADMIN, Role.HOD, Role.CANTEEN),
   asyncHandler(async (req, res) => {
     const q = req.query as Record<string, string | undefined>;
     const today = new Date();
@@ -196,6 +199,7 @@ managedRouter.get(
 
 managedRouter.get(
   "/orders/:id",
+  requireRole(Role.ADMIN, Role.HOD, Role.CANTEEN),
   asyncHandler(async (req, res) => {
     res.json(await getOrder(req.params.id));
   })
