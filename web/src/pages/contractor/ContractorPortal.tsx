@@ -154,7 +154,8 @@ export function ContractorPortal() {
               <div>
                 <label className="label">Number of Labours *</label>
                 <input
-                  className="input" type="number" min={1} max={bal} step={1} required
+                  className="input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  type="number" min={1} max={bal} step={1} required
                   value={count}
                   onChange={(e) => handleCountChange(e.target.value)}
                 />
