@@ -273,6 +273,34 @@ productsRouter.get(
   })
 );
 
+productsRouter.delete(
+  "/:id",
+  requireRole(Role.ADMIN),
+  asyncHandler(async (req, res) => {
+    const before = await queryOne(pool, `${PRODUCT_SELECT} WHERE p.id = $1`, [req.params.id]);
+    if (!before) throw ApiError.notFound("Product not found");
+
+    // Block delete if the product has any stock or transaction history
+    const checks = await Promise.all([
+      queryOne(pool, "SELECT 1 FROM stock_inward_items WHERE product_id = $1 LIMIT 1", [req.params.id]),
+      queryOne(pool, "SELECT 1 FROM store_stock_ledger WHERE product_id = $1 LIMIT 1", [req.params.id]),
+      queryOne(pool, "SELECT 1 FROM canteen_stock_ledger WHERE product_id = $1 LIMIT 1", [req.params.id]),
+      queryOne(pool, "SELECT 1 FROM sale_items WHERE product_id = $1 LIMIT 1", [req.params.id]),
+      queryOne(pool, "SELECT 1 FROM managed_order_items WHERE product_id = $1 LIMIT 1", [req.params.id]),
+    ]);
+
+    if (checks.some(Boolean)) {
+      throw ApiError.badRequest(
+        "This product has stock or transaction history and cannot be hard-deleted. Deactivate it instead."
+      );
+    }
+
+    await query(pool, "DELETE FROM products WHERE id = $1", [req.params.id]);
+    await writeAudit(pool, { entity: "Product", entityId: req.params.id, action: "DELETE", actorId: req.user!.sub, before });
+    res.status(204).end();
+  })
+);
+
 // ---------------------------------------------------------------------------
 // Food Items — prepared food sold at POS (name + price only). Stored as a
 // product with track_canteen_stock = FALSE so it never deducts canteen stock.
