@@ -51,6 +51,20 @@ export function Products() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
   });
 
+  const deleteProduct = useMutation({
+    mutationFn: async (id: string) => api.delete(`/masters/products/${id}`),
+    onSuccess: () => {
+      toast.success("Product deleted");
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
+  });
+
+  function handleDelete(p: Product) {
+    if (!window.confirm(`Permanently delete "${p.name}"? This cannot be undone.`)) return;
+    deleteProduct.mutate(p.id);
+  }
+
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
@@ -129,6 +143,13 @@ export function Products() {
                   </button>
                   <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => toggleActive.mutate(p)}>
                     {p.active ? "Deactivate" : "Activate"}
+                  </button>
+                  <button
+                    className="!px-2 !py-1 text-xs rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                    onClick={() => handleDelete(p)}
+                    disabled={deleteProduct.isPending}
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>
