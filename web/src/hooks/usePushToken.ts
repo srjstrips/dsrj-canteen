@@ -19,5 +19,5 @@ export function usePushToken() {
         }
       })
       .catch(() => {});
-  }, [user?.sub]);
+  }, [user?.id]);
 }
