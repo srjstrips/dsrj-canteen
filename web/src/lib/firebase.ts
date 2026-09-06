@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
@@ -10,44 +10,50 @@ const firebaseConfig = {
   appId: "1:848543380808:web:c097b5925f450a9a71af7d",
 };
 
-const app = initializeApp(firebaseConfig);
-
-// FCM requires a secure context (HTTPS) and service worker support
-const isSupported =
-  typeof window !== "undefined" &&
-  "serviceWorker" in navigator &&
-  "Notification" in window &&
-  window.isSecureContext;
-
-const messaging = isSupported ? getMessaging(app) : null;
-
 const VAPID_KEY = "BPW_4G8PL-5BbJgz_2rtezhGY8g9rywFpEEz0rjV8q3KD33WRRalnzzkJJwvmvfppzUiMdzLZzGfaLl4-PfG1Ho";
 
-/** Request notification permission and return FCM token, or null if denied. */
+function isMessagingSupported() {
+  return (
+    typeof window !== "undefined" &&
+    window.isSecureContext &&
+    "serviceWorker" in navigator &&
+    "Notification" in window &&
+    "PushManager" in window
+  );
+}
+
+function getApp() {
+  if (!getApps().length) return initializeApp(firebaseConfig);
+  return getApps()[0];
+}
+
 export async function requestPushToken(): Promise<string | null> {
-  if (!isSupported || !messaging) return null;
+  if (!isMessagingSupported()) return null;
   try {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return null;
 
-    const token = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js"),
-    });
+    const messaging = getMessaging(getApp());
+    const swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     return token || null;
   } catch {
     return null;
   }
 }
 
-/** Listen for foreground messages and run the callback. */
 export function onForegroundMessage(cb: (payload: { title: string; body: string; type: string }) => void) {
-  if (!isSupported || !messaging) return () => {};
-  return onMessage(messaging, (payload) => {
-    cb({
-      title: payload.notification?.title ?? "Notification",
-      body: payload.notification?.body ?? "",
-      type: (payload.data?.type as string) ?? "",
+  if (!isMessagingSupported()) return () => {};
+  try {
+    const messaging = getMessaging(getApp());
+    return onMessage(messaging, (payload) => {
+      cb({
+        title: payload.notification?.title ?? "Notification",
+        body: payload.notification?.body ?? "",
+        type: (payload.data?.type as string) ?? "",
+      });
     });
-  });
+  } catch {
+    return () => {};
+  }
 }
