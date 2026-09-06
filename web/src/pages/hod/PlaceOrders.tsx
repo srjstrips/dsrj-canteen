@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useBillingAccounts, useProducts } from "../../api/queries";
-import { ProductSelect } from "../../components/ProductSelect";
 import { Modal } from "../../components/Modal";
 import { Combobox } from "../../components/Combobox";
 import { formatCurrency, formatDateTime } from "../../lib/format";
@@ -14,11 +13,7 @@ interface ItemRow {
   quantity: string;
 }
 
-const orderTypes: { value: ManagedOrderType; label: string }[] = [
-  { value: "OT", label: "OT (Overtime)" },
-  { value: "GUEST", label: "Guest" },
-  { value: "CONTRACTOR", label: "Contractor" },
-];
+const OT_FOOD_NAME = "OVERTIME FOOD"; // must match exactly the food item name in DB
 
 const shifts = ["Day", "Night"] as const;
 
@@ -28,15 +23,24 @@ export function PlaceOrders() {
   const [accountId, setAccountId] = useState("");
   const [shift, setShift] = useState<string>("Day");
   const [names, setNames] = useState("");
+
+  // For GUEST / CONTRACTOR — manual item selection
   const [items, setItems] = useState<ItemRow[]>([{ productId: "", quantity: "1" }]);
 
+  const isOT = orderType === "OT";
   const isContractor = orderType === "CONTRACTOR";
   const accountFilter = isContractor ? "CONTRACTOR" : "COMPANY";
-  const { data: accounts } = useBillingAccounts({ type: accountFilter, activeOnly: true });
-  const { data: products } = useProducts(true);
 
-  // OT / Guest are always billed to the company — auto-pick it (there is only
-  // one company account) so the HOD never has to choose. Contractor still picks.
+  const { data: accounts } = useBillingAccounts({ type: accountFilter, activeOnly: true });
+  const { data: allProducts } = useProducts(true);
+
+  // Find the fixed OT food product
+  const otFoodProduct = useMemo(
+    () => allProducts?.find((p) => p.name.trim().toUpperCase() === OT_FOOD_NAME),
+    [allProducts]
+  );
+
+  // Auto-pick company account for OT/GUEST
   useEffect(() => {
     if (!isContractor) setAccountId(accounts && accounts.length > 0 ? accounts[0].id : "");
     else setAccountId("");
@@ -47,21 +51,33 @@ export function PlaceOrders() {
     queryFn: async () => (await api.get<ManagedOrder[]>("/managed/orders")).data,
   });
 
+  // Parse comma/newline separated names, auto-trim, filter empty
   const parsedNames = useMemo(
     () => names.split(/[,\n]/).map((n) => n.trim()).filter(Boolean),
     [names]
   );
 
+  // For OT: fixed 1 plate of OVERTIME FOOD per person
+  const effectiveItems = useMemo(() => {
+    if (isOT && otFoodProduct) return [{ productId: otFoodProduct.id, quantity: 1 }];
+    return items.map((it) => ({ productId: it.productId, quantity: Number(it.quantity) }));
+  }, [isOT, otFoodProduct, items]);
+
   const estPerPerson = useMemo(() => {
-    if (!products) return 0;
+    if (isOT && otFoodProduct) return Number(otFoodProduct.sellPrice ?? 0);
+    if (!allProducts) return 0;
     return items.reduce((sum, it) => {
-      const p = products.find((x) => x.id === it.productId);
+      const p = allProducts.find((x) => x.id === it.productId);
       return sum + (p?.sellPrice ? Number(p.sellPrice) * Number(it.quantity || 0) : 0);
     }, 0);
-  }, [items, products]);
+  }, [isOT, otFoodProduct, items, allProducts]);
 
   const [editing, setEditing] = useState<ManagedOrder | null>(null);
-  const [editForm, setEditForm] = useState<{ dinerName: string; shift: string; items: ItemRow[] }>({ dinerName: "", shift: "", items: [] });
+  const [editForm, setEditForm] = useState<{ dinerName: string; shift: string; items: ItemRow[] }>({
+    dinerName: "",
+    shift: "",
+    items: [],
+  });
 
   function openEdit(o: ManagedOrder) {
     setEditing(o);
@@ -103,7 +119,7 @@ export function PlaceOrders() {
         orderType,
         accountId,
         shift: shift || undefined,
-        items: items.map((it) => ({ productId: it.productId, quantity: Number(it.quantity) })),
+        items: effectiveItems,
       }),
     onSuccess: (res) => {
       toast.success(`${res.data.length} order(s) placed`);
@@ -116,129 +132,155 @@ export function PlaceOrders() {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (parsedNames.length === 0) return toast.error("Enter at least one diner name");
+    if (parsedNames.length === 0) return toast.error("Enter at least one employee name");
     if (!accountId) return toast.error("Select a billing account");
-    if (items.some((it) => !it.productId || Number(it.quantity) <= 0)) return toast.error("Every item needs a product and quantity");
+    if (isOT && !otFoodProduct) return toast.error(`Food item "${OT_FOOD_NAME}" not found — ask Admin to create it in Food Items`);
+    if (!isOT && items.some((it) => !it.productId || Number(it.quantity) <= 0))
+      return toast.error("Every item needs a product and quantity");
     placeMutation.mutate();
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">Place Orders — OT / Guest / Contractor</h1>
+        <h1 className="text-xl font-bold">Place OT / Guest Orders</h1>
         <p className="text-sm text-muted">
-          Enter names (comma or new-line separated) — one order is created per person. Items are billed at the standard sell price to the selected
-          account.
+          For OT: enter employee names separated by commas — one order per person with fixed Overtime Food.
         </p>
       </div>
 
       <form onSubmit={submit} className="card space-y-4">
+        {/* Order type + account + shift */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div>
             <label className="label">Type</label>
             <select
               className="input"
               value={orderType}
-              onChange={(e) => {
-                setOrderType(e.target.value as ManagedOrderType);
-                setAccountId("");
-              }}
+              onChange={(e) => { setOrderType(e.target.value as ManagedOrderType); setAccountId(""); }}
             >
-              {orderTypes.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
+              <option value="OT">OT (Overtime)</option>
+              <option value="GUEST">Guest</option>
             </select>
           </div>
-          {isContractor ? (
-            <div>
-              <label className="label">Contractor</label>
-              <Combobox
-                value={accountId}
-                onChange={setAccountId}
-                options={(accounts ?? []).map((a) => ({ value: a.id, label: a.name }))}
-                placeholder="Type to search contractor…"
-              />
-              {accounts?.length === 0 && <p className="mt-1 text-xs text-danger">No contractor accounts — ask Admin to add one.</p>}
+
+          <div>
+            <label className="label">Billed to</label>
+            <div className="input flex items-center bg-background text-muted">
+              {accounts && accounts.length > 0 ? accounts[0].name : "No company account — ask Admin to add one"}
             </div>
-          ) : (
-            <div>
-              <label className="label">Billed to</label>
-              <div className="input flex items-center bg-background text-muted">
-                {accounts && accounts.length > 0 ? accounts[0].name : "No company account — ask Admin to add one"}
-              </div>
-            </div>
-          )}
+          </div>
+
           <div>
             <label className="label">Shift</label>
             <select className="input" value={shift} onChange={(e) => setShift(e.target.value)}>
               {shifts.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
           </div>
         </div>
 
-        <div>
-          <label className="label">Diner name(s)</label>
-          <textarea
-            className="input min-h-[72px]"
-            value={names}
-            onChange={(e) => setNames(e.target.value)}
-            placeholder="Ramesh, Suresh, Mahesh — or one name per line"
-          />
-          {parsedNames.length > 0 && <p className="mt-1 text-xs text-muted">{parsedNames.length} order(s) will be created.</p>}
-        </div>
-
-        <div className="space-y-2">
-          <label className="label">Food items (same for every person)</label>
-          {items.map((it, idx) => (
-            <div key={idx} className="flex items-end gap-2">
-              <div className="flex-1">
-                <ProductSelect sellableOnly value={it.productId} onChange={(v) => setItems(items.map((r, i) => (i === idx ? { ...r, productId: v } : r)))} />
-              </div>
-              <div className="w-28">
-                <input
-                  className="input"
-                  type="number"
-                  min={0}
-                  step="0.001"
-                  value={it.quantity}
-                  onChange={(e) => setItems(items.map((r, i) => (i === idx ? { ...r, quantity: e.target.value } : r)))}
-                />
-              </div>
-              <button
-                type="button"
-                className="btn-secondary !px-3"
-                onClick={() => setItems(items.length === 1 ? [{ productId: "", quantity: "1" }] : items.filter((_, i) => i !== idx))}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-          <button type="button" className="btn-secondary !py-1.5 text-xs" onClick={() => setItems([...items, { productId: "", quantity: "1" }])}>
-            + Add item
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-border pt-3">
-          <p className="text-sm text-muted">
-            Est. per person: <span className="font-semibold text-ink">{formatCurrency(estPerPerson)}</span>
-            {parsedNames.length > 1 && (
+        {/* OT: fixed food item info box */}
+        {isOT && (
+          <div className={`rounded-lg border px-4 py-3 text-sm ${otFoodProduct ? "border-green-200 bg-green-50 text-green-800" : "border-orange-200 bg-orange-50 text-orange-800"}`}>
+            {otFoodProduct ? (
               <>
-                {" · "}Total: <span className="font-semibold text-ink">{formatCurrency(estPerPerson * parsedNames.length)}</span>
+                <span className="font-semibold">Food item fixed:</span> {otFoodProduct.name} — ₹{Number(otFoodProduct.sellPrice ?? 0).toFixed(2)} per person
+              </>
+            ) : (
+              <>
+                <span className="font-semibold">"{OT_FOOD_NAME}" not found.</span> Ask Admin to create this food item first.
               </>
             )}
-          </p>
+          </div>
+        )}
+
+        {/* Employee names */}
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="label mb-0">{isOT ? "Employee name(s)" : "Diner name(s)"}</label>
+            {parsedNames.length > 0 && (
+              <span className="text-xs font-semibold text-primary">
+                {parsedNames.length} {isOT ? "employee(s)" : "person(s)"}
+                {isOT && otFoodProduct && parsedNames.length > 0 && (
+                  <> · Total: {formatCurrency(estPerPerson * parsedNames.length)}</>
+                )}
+              </span>
+            )}
+          </div>
+          <textarea
+            className="input min-h-[80px]"
+            value={names}
+            onChange={(e) => setNames(e.target.value)}
+            placeholder={isOT ? "Ramesh Kumar, Suresh Singh, Mahesh Yadav, …" : "Enter names separated by commas"}
+          />
+          {parsedNames.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {parsedNames.map((n, i) => (
+                <span key={i} className="rounded-full bg-primary-light px-2 py-0.5 text-xs font-medium text-primary">
+                  {i + 1}. {n}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* GUEST: manual item selection */}
+        {!isOT && (
+          <div className="space-y-2">
+            <label className="label">Food items (same for every person)</label>
+            {items.map((it, idx) => (
+              <div key={idx} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <select
+                    className="input"
+                    value={it.productId}
+                    onChange={(e) => setItems(items.map((r, i) => (i === idx ? { ...r, productId: e.target.value } : r)))}
+                  >
+                    <option value="">Select food item…</option>
+                    {allProducts?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-24">
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    step="0.001"
+                    value={it.quantity}
+                    onChange={(e) => setItems(items.map((r, i) => (i === idx ? { ...r, quantity: e.target.value } : r)))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary !px-3"
+                  onClick={() => setItems(items.length === 1 ? [{ productId: "", quantity: "1" }] : items.filter((_, i) => i !== idx))}
+                >✕</button>
+              </div>
+            ))}
+            <button type="button" className="btn-secondary !py-1.5 text-xs" onClick={() => setItems([...items, { productId: "", quantity: "1" }])}>
+              + Add item
+            </button>
+            {estPerPerson > 0 && (
+              <p className="text-sm text-muted">
+                Est. per person: <span className="font-semibold text-ink">{formatCurrency(estPerPerson)}</span>
+                {parsedNames.length > 1 && <> · Total: <span className="font-semibold text-ink">{formatCurrency(estPerPerson * parsedNames.length)}</span></>}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end border-t border-border pt-3">
           <button className="btn-primary" type="submit" disabled={placeMutation.isPending}>
-            {placeMutation.isPending ? "Placing…" : "Place Order(s)"}
+            {placeMutation.isPending ? "Placing…" : `Place ${parsedNames.length > 0 ? parsedNames.length : ""} Order(s)`}
           </button>
         </div>
       </form>
 
+      {/* Today's orders table */}
       <div>
         <h2 className="mb-2 text-sm font-semibold">Today's orders</h2>
         <div className="card overflow-x-auto p-0">
@@ -246,9 +288,8 @@ export function PlaceOrders() {
             <thead>
               <tr>
                 <th>Order No</th>
-                <th>Diner</th>
+                <th>Employee / Diner</th>
                 <th>Type</th>
-                <th>Account</th>
                 <th>Shift</th>
                 <th>Status</th>
                 <th>Placed</th>
@@ -256,39 +297,30 @@ export function PlaceOrders() {
               </tr>
             </thead>
             <tbody>
-              {todaysOrders?.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="text-muted">
-                    No orders placed today.
-                  </td>
-                </tr>
+              {!todaysOrders?.length && (
+                <tr><td colSpan={7} className="text-muted">No orders placed today.</td></tr>
               )}
               {todaysOrders?.map((o) => (
                 <tr key={o.id}>
                   <td className="font-medium">{o.orderNo}</td>
                   <td>{o.dinerName}</td>
                   <td>{o.orderType}</td>
-                  <td>{o.account.name}</td>
                   <td>{o.shift ?? "—"}</td>
                   <td>
-                    {o.status === "SERVED" ? <span className="badge-success">Served</span> : <span className="badge-info">Placed</span>}
+                    {o.status === "SERVED"
+                      ? <span className="badge-success">Served</span>
+                      : <span className="badge-info">Placed</span>}
                   </td>
                   <td>{formatDateTime(o.createdAt)}</td>
                   <td className="space-x-2 whitespace-nowrap text-right">
                     {o.status === "PLACED" ? (
                       <>
-                        <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => openEdit(o)}>
-                          Edit
-                        </button>
+                        <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => openEdit(o)}>Edit</button>
                         <button
                           className="btn-secondary !px-2 !py-1 text-xs text-danger"
                           disabled={deleteMutation.isPending}
-                          onClick={() => {
-                            if (window.confirm(`Delete order for ${o.dinerName}?`)) deleteMutation.mutate(o.id);
-                          }}
-                        >
-                          Delete
-                        </button>
+                          onClick={() => { if (window.confirm(`Delete order for ${o.dinerName}?`)) deleteMutation.mutate(o.id); }}
+                        >Delete</button>
                       </>
                     ) : (
                       <span className="text-xs text-muted">Served — locked</span>
@@ -301,30 +333,27 @@ export function PlaceOrders() {
         </div>
       </div>
 
+      {/* Edit modal */}
       <Modal open={!!editing} onClose={() => setEditing(null)} title={`Edit order — ${editing?.orderNo ?? ""}`}>
         <form
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!editForm.dinerName.trim()) return toast.error("Diner name is required");
-            if (editForm.items.length === 0 || editForm.items.some((it) => !it.productId || Number(it.quantity) <= 0))
+            if (!editForm.dinerName.trim()) return toast.error("Name is required");
+            if (editForm.items.some((it) => !it.productId || Number(it.quantity) <= 0))
               return toast.error("Every item needs a product and quantity");
             editMutation.mutate();
           }}
         >
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Diner name</label>
+              <label className="label">Name</label>
               <input className="input" value={editForm.dinerName} onChange={(e) => setEditForm({ ...editForm, dinerName: e.target.value })} />
             </div>
             <div>
               <label className="label">Shift</label>
               <select className="input" value={editForm.shift} onChange={(e) => setEditForm({ ...editForm, shift: e.target.value })}>
-                {shifts.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
+                {shifts.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
@@ -333,11 +362,14 @@ export function PlaceOrders() {
             {editForm.items.map((it, idx) => (
               <div key={idx} className="flex items-end gap-2">
                 <div className="flex-1">
-                  <ProductSelect
-                    sellableOnly
+                  <select
+                    className="input"
                     value={it.productId}
-                    onChange={(v) => setEditForm({ ...editForm, items: editForm.items.map((r, i) => (i === idx ? { ...r, productId: v } : r)) })}
-                  />
+                    onChange={(e) => setEditForm({ ...editForm, items: editForm.items.map((r, i) => (i === idx ? { ...r, productId: e.target.value } : r)) })}
+                  >
+                    <option value="">Select…</option>
+                    {allProducts?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
                 </div>
                 <div className="w-24">
                   <input
@@ -349,20 +381,10 @@ export function PlaceOrders() {
                     onChange={(e) => setEditForm({ ...editForm, items: editForm.items.map((r, i) => (i === idx ? { ...r, quantity: e.target.value } : r)) })}
                   />
                 </div>
-                <button
-                  type="button"
-                  className="btn-secondary !px-3"
-                  onClick={() => setEditForm({ ...editForm, items: editForm.items.filter((_, i) => i !== idx) })}
-                >
-                  ✕
-                </button>
+                <button type="button" className="btn-secondary !px-3" onClick={() => setEditForm({ ...editForm, items: editForm.items.filter((_, i) => i !== idx) })}>✕</button>
               </div>
             ))}
-            <button
-              type="button"
-              className="btn-secondary !py-1.5 text-xs"
-              onClick={() => setEditForm({ ...editForm, items: [...editForm.items, { productId: "", quantity: "1" }] })}
-            >
+            <button type="button" className="btn-secondary !py-1.5 text-xs" onClick={() => setEditForm({ ...editForm, items: [...editForm.items, { productId: "", quantity: "1" }] })}>
               + Add item
             </button>
           </div>
