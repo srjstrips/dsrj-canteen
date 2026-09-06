@@ -13,3 +13,5 @@ web/dist/
 server/dist/
 *.tsbuildinfo
 .github/workflows/
+web/android/local.properties
+web/android/local.properties
