@@ -8,7 +8,7 @@ export function usePushToken() {
 
   useEffect(() => {
     if (!user) return;
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !window.isSecureContext) return;
 
     navigator.serviceWorker
       .register("/firebase-messaging-sw.js")

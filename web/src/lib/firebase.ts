@@ -11,12 +11,21 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+
+// FCM requires a secure context (HTTPS) and service worker support
+const isSupported =
+  typeof window !== "undefined" &&
+  "serviceWorker" in navigator &&
+  "Notification" in window &&
+  window.isSecureContext;
+
+const messaging = isSupported ? getMessaging(app) : null;
 
 const VAPID_KEY = "BPW_4G8PL-5BbJgz_2rtezhGY8g9rywFpEEz0rjV8q3KD33WRRalnzzkJJwvmvfppzUiMdzLZzGfaLl4-PfG1Ho";
 
 /** Request notification permission and return FCM token, or null if denied. */
 export async function requestPushToken(): Promise<string | null> {
+  if (!isSupported || !messaging) return null;
   try {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return null;
@@ -33,6 +42,7 @@ export async function requestPushToken(): Promise<string | null> {
 
 /** Listen for foreground messages and run the callback. */
 export function onForegroundMessage(cb: (payload: { title: string; body: string; type: string }) => void) {
+  if (!isSupported || !messaging) return () => {};
   return onMessage(messaging, (payload) => {
     cb({
       title: payload.notification?.title ?? "Notification",
