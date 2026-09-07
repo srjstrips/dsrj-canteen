@@ -107,6 +107,7 @@ export function CategoriesUnits() {
               Add
             </button>
           </form>
+          <div className="overflow-x-auto">
           <table className="table-base">
             <thead>
               <tr>
@@ -138,6 +139,7 @@ export function CategoriesUnits() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div className="card space-y-3">

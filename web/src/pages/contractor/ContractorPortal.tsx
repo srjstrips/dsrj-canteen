@@ -125,7 +125,7 @@ export function ContractorPortal() {
       </div>
 
       {/* Balance card */}
-      <div className="card max-w-xs">
+      <div className="card w-full sm:max-w-xs">
         <p className="text-sm text-muted">Current Token Balance</p>
         {balanceLoading ? (
           <p className="mt-1 text-muted">Loading…</p>
@@ -138,7 +138,7 @@ export function ContractorPortal() {
       </div>
 
       {/* Submit labour form */}
-      <div className="card max-w-2xl space-y-4">
+      <div className="card w-full sm:max-w-2xl space-y-4">
         <h2 className="font-semibold">Send Labours for Food</h2>
         {bal === 0 ? (
           <p className="rounded-lg bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
@@ -146,7 +146,7 @@ export function ContractorPortal() {
           </p>
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="label">Date *</label>
                 <input className="input" type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} required />

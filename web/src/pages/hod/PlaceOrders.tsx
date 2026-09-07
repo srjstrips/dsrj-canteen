@@ -284,7 +284,7 @@ export function PlaceOrders() {
       <div>
         <h2 className="mb-2 text-sm font-semibold">Today's orders</h2>
         <div className="card overflow-x-auto p-0">
-          <table className="table-base">
+          <table className="table-base min-w-[600px]">
             <thead>
               <tr>
                 <th>Order No</th>
@@ -345,7 +345,7 @@ export function PlaceOrders() {
             editMutation.mutate();
           }}
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label">Name</label>
               <input className="input" value={editForm.dinerName} onChange={(e) => setEditForm({ ...editForm, dinerName: e.target.value })} />

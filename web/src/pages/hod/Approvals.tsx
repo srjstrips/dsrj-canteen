@@ -47,7 +47,8 @@ export function Approvals() {
               </p>
             </div>
           </div>
-          <table className="table-base">
+          <div className="overflow-x-auto">
+          <table className="table-base min-w-[400px]">
             <thead>
               <tr>
                 <th>Extra Item</th>
@@ -86,6 +87,7 @@ export function Approvals() {
                 ))}
             </tbody>
           </table>
+          </div>
         </div>
       ))}
     </div>

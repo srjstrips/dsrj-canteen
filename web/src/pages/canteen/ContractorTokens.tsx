@@ -98,7 +98,7 @@ export function ContractorTokens() {
       {/* One card per contractor */}
       {Object.entries(byContractor).map(([accountId, items]) => (
         <div key={accountId} className="card overflow-x-auto p-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-border">
             <div>
               <p className="font-semibold">{items[0].accountName}</p>
               <p className="text-xs text-muted">

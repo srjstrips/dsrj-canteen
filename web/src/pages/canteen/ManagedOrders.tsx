@@ -60,7 +60,7 @@ export function ManagedOrders() {
         <p className="text-sm text-muted">Find the diner by name, serve their order, and record any extra food eaten.</p>
       </div>
 
-      <input className="input max-w-sm" placeholder="Search diner name…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <input className="input w-full sm:max-w-sm" placeholder="Search diner name…" value={search} onChange={(e) => setSearch(e.target.value)} />
 
       {isLoading && <p className="text-muted">Loading…</p>}
 
@@ -97,7 +97,8 @@ export function ManagedOrders() {
                 )}
               </div>
             </div>
-            <table className="table-base">
+            <div className="overflow-x-auto">
+            <table className="table-base min-w-[400px]">
               <thead>
                 <tr>
                   <th>Item</th>
@@ -129,6 +130,7 @@ export function ManagedOrders() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ))}
       </div>

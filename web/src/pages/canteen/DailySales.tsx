@@ -50,6 +50,7 @@ export function DailySales() {
               <h2 className="font-semibold">Product-wise Sales</h2>
               <ExcelButton filename="daily-sales" rows={data.productWiseSales as unknown as Record<string, unknown>[]} />
             </div>
+            <div className="overflow-x-auto">
             <table className="table-base">
               <thead>
                 <tr>
@@ -68,6 +69,7 @@ export function DailySales() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

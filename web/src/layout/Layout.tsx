@@ -113,7 +113,7 @@ export function Layout() {
                 </span>
               )}
             </button>
-            <div className="text-right">
+            <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold leading-tight">{user.name}</p>
               <p className="text-xs leading-tight text-muted">{user.role}</p>
             </div>

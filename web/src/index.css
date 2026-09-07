@@ -48,7 +48,7 @@ body {
 
 @layer components {
   .card {
-    @apply bg-card rounded-xl shadow-card border border-border p-5;
+    @apply bg-card rounded-xl shadow-card border border-border p-3 md:p-5;
   }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed;

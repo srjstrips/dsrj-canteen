@@ -129,7 +129,7 @@ export function StockInward() {
             const categories = [...new Map((allProducts ?? []).map((p) => [p.category.id, p.category.name])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
             const categoryProducts = (allProducts ?? []).filter((p) => p.category.id === line.categoryId);
             return (
-              <div key={i} className="grid grid-cols-1 items-end gap-2 rounded-lg border border-border p-3 md:grid-cols-[1fr_2fr_1fr_1fr_1fr_auto]">
+              <div key={i} className="grid grid-cols-1 items-end gap-2 rounded-lg border border-border p-3 sm:grid-cols-2 lg:grid-cols-[1fr_2fr_1fr_1fr_1fr_auto]">
                 <div>
                   <label className="label">Category</label>
                   <select

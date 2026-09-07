@@ -191,8 +191,8 @@ export function Billing() {
   const totalItems = cart.reduce((sum, l) => sum + l.quantity, 0);
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_400px] xl:h-[calc(100vh-7.5rem)]">
-      <div className="space-y-4 xl:overflow-y-auto xl:pr-1">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_380px] lg:h-[calc(100vh-7.5rem)]">
+      <div className="space-y-4 lg:overflow-y-auto lg:pr-1">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🛒</span>
           <div>
@@ -231,7 +231,7 @@ export function Billing() {
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((p) => {
             const qty = qtyInCart(p.id);
             const selected = qty > 0;
@@ -280,7 +280,7 @@ export function Billing() {
 
       </div>
 
-      <div className="card space-y-3 xl:overflow-y-auto xl:h-full">
+      <div className="card space-y-3 lg:overflow-y-auto lg:h-full">
         <div className="flex items-center justify-between">
           <h2 className="font-bold">Current Bill</h2>
           {cart.length > 0 && (
