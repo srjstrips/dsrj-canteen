@@ -1,6 +1,6 @@
 import { pool, query, queryOne, withTransaction } from "../../db/pool";
 import { ApiError } from "../../utils/ApiError";
-import { applyInward, applyIssue, D, Decimal } from "../../utils/money";
+import { applyInward, applyIssue, D, Decimal, round2, round3 } from "../../utils/money";
 import { generateDocNo } from "../../utils/docNumber";
 import { writeAudit } from "../../utils/audit";
 import { StoreLedgerTxnType, CanteenLedgerTxnType } from "../../types/domain";
@@ -121,6 +121,77 @@ export async function recordStockInward(input: RecordInwardInput) {
     await writeAudit(client, { entity: "StockInward", entityId: inwardId, action: "CREATE", actorId: input.createdById, after: updated });
 
     return updated;
+  });
+}
+
+/**
+ * Reverses a stock inward by subtracting each item's quantity from the balance
+ * and removing all ledger rows tied to this inward. The avg rate is
+ * recomputed from the remaining balance (value / qty). If any product's
+ * stock would go negative the request is rejected to keep the ledger sane.
+ */
+export async function deleteStockInward(inwardId: string, actorId: string) {
+  return withTransaction(async (client) => {
+    const inward = await queryOne<{ id: string; inwardNo: string }>(
+      client,
+      "SELECT id, inward_no AS \"inwardNo\" FROM stock_inwards WHERE id = $1 FOR UPDATE",
+      [inwardId]
+    );
+    if (!inward) throw ApiError.notFound("Stock inward not found");
+
+    const items = await query<{ productId: string; quantity: string; rate: string }>(
+      client,
+      `SELECT product_id AS "productId", quantity, rate FROM stock_inward_items WHERE stock_inward_id = $1`,
+      [inwardId]
+    );
+
+    for (const item of items) {
+      const balance = await queryOne<{ quantity: string; stockValue: string }>(
+        client,
+        "SELECT quantity, stock_value AS \"stockValue\" FROM store_stock_balances WHERE product_id = $1 FOR UPDATE",
+        [item.productId]
+      );
+      const currentQty = D(balance?.quantity ?? 0);
+      const currentValue = D(balance?.stockValue ?? 0);
+      const removeQty = D(item.quantity);
+      const removeValue = round2(removeQty.mul(D(item.rate)));
+
+      if (currentQty.lessThan(removeQty)) {
+        throw ApiError.badRequest(
+          `Cannot delete: stock for one or more products has already been partially issued. ` +
+          `Reverse the related issue(s) first.`
+        );
+      }
+
+      const newQty = round3(currentQty.sub(removeQty));
+      const newValue = round2(currentValue.sub(removeValue));
+      const newAvgRate = newQty.isZero() ? round2(0) : round2(newValue.div(newQty));
+
+      await query(
+        client,
+        `UPDATE store_stock_balances SET quantity = $2, avg_rate = $3, stock_value = $4, updated_at = now()
+         WHERE product_id = $1`,
+        [item.productId, newQty.toString(), newAvgRate.toString(), newValue.toString()]
+      );
+
+      // Remove ledger rows belonging to this inward
+      await query(
+        client,
+        `DELETE FROM store_stock_ledger WHERE product_id = $1 AND ref_id = $2 AND txn_type = 'INWARD'`,
+        [item.productId, inwardId]
+      );
+    }
+
+    await query(client, "DELETE FROM stock_inward_items WHERE stock_inward_id = $1", [inwardId]);
+    await query(client, "DELETE FROM stock_inwards WHERE id = $1", [inwardId]);
+
+    await writeAudit(client, {
+      entity: "StockInward",
+      entityId: inwardId,
+      action: "DELETE",
+      actorId,
+      before: { inwardNo: inward.inwardNo },
+    });
   });
 }
 

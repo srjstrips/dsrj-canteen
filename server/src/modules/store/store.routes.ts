@@ -13,6 +13,7 @@ import {
   INWARD_SELECT,
   ISSUE_SELECT,
   RETURN_SELECT,
+  deleteStockInward,
   getStoreLedger,
   getStoreStockSummary,
   issueStockToCanteen,
@@ -117,6 +118,15 @@ storeRouter.post(
       createdById: req.user!.sub,
     });
     res.status(201).json({ importedRows: rows.length, inward: result });
+  })
+);
+
+storeRouter.delete(
+  "/stock-inward/:id",
+  requireRole(Role.STORE, Role.ADMIN),
+  asyncHandler(async (req, res) => {
+    await deleteStockInward(req.params.id, req.user!.sub);
+    res.json({ success: true });
   })
 );
 

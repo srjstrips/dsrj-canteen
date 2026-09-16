@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { useSuppliers, useStoreProducts } from "../../api/queries";
+import { Modal } from "../../components/Modal";
 import { Combobox } from "../../components/Combobox";
 import { BulkImport } from "../../components/BulkImport";
 import { formatCurrency, formatDate, todayInput } from "../../lib/format";
@@ -36,10 +37,22 @@ export function StockInward() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [inwardDate, setInwardDate] = useState(todayInput());
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
+  const [confirmDelete, setConfirmDelete] = useState<InwardRow | null>(null);
 
   const { data: inwards, isLoading } = useQuery({
     queryKey: ["stock-inwards"],
     queryFn: async () => (await api.get<InwardRow[]>("/store/stock-inward")).data,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => api.delete(`/store/stock-inward/${id}`),
+    onSuccess: () => {
+      toast.success("Inward entry deleted and stock reversed");
+      queryClient.invalidateQueries({ queryKey: ["stock-inwards"] });
+      queryClient.invalidateQueries({ queryKey: ["store-stock"] });
+      setConfirmDelete(null);
+    },
+    onError: (e) => toast.error(apiErrorMessage(e)),
   });
 
   const submitMutation = useMutation({
@@ -197,7 +210,7 @@ export function StockInward() {
 
       <div className="card overflow-x-auto p-0">
         <h2 className="p-4 pb-0 font-semibold">Recent Inward Entries</h2>
-        <table className="table-base mt-2">
+        <table className="table-base mt-2 min-w-[700px]">
           <thead>
             <tr>
               <th>Inward No.</th>
@@ -206,12 +219,13 @@ export function StockInward() {
               <th>Invoice</th>
               <th>Items</th>
               <th>Total Value</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={6}>Loading…</td>
+                <td colSpan={7}>Loading…</td>
               </tr>
             )}
             {inwards?.map((inward) => (
@@ -220,13 +234,47 @@ export function StockInward() {
                 <td>{formatDate(inward.inwardDate)}</td>
                 <td>{inward.supplier.name}</td>
                 <td>{inward.invoiceNumber ?? "—"}</td>
-                <td>{inward.items.map((it) => `${it.product.name} (${it.quantity} ${it.product.unit.symbol} @ ₹${it.rate})`).join(", ")}</td>
+                <td className="max-w-[260px] truncate text-xs text-muted" title={inward.items.map((it) => `${it.product.name} (${it.quantity} ${it.product.unit.symbol} @ ₹${it.rate})`).join(", ")}>
+                  {inward.items.map((it) => `${it.product.name} (${it.quantity} ${it.product.unit.symbol} @ ₹${it.rate})`).join(", ")}
+                </td>
                 <td>{formatCurrency(inward.totalValue)}</td>
+                <td>
+                  <button
+                    className="btn-secondary !px-2 !py-1 text-xs text-danger hover:border-danger"
+                    onClick={() => setConfirmDelete(inward)}
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Delete Inward Entry?">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+            <p className="font-semibold">This will permanently delete inward <span className="font-bold">{confirmDelete?.inwardNo}</span> and reverse the stock quantities for all items in it.</p>
+            <p className="mt-1 text-xs">If any item's stock has already been issued, the delete will be blocked — reverse the issue first.</p>
+          </div>
+          <div className="text-sm space-y-1">
+            <p><span className="text-muted">Supplier:</span> <span className="font-medium">{confirmDelete?.supplier.name}</span></p>
+            <p><span className="text-muted">Date:</span> {confirmDelete ? formatDate(confirmDelete.inwardDate) : ""}</p>
+            <p><span className="text-muted">Total Value:</span> {confirmDelete ? formatCurrency(confirmDelete.totalValue) : ""}</p>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button className="btn-secondary flex-1" onClick={() => setConfirmDelete(null)}>Cancel</button>
+            <button
+              className="btn-danger flex-1"
+              disabled={deleteMutation.isPending}
+              onClick={() => confirmDelete && deleteMutation.mutate(confirmDelete.id)}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Yes, Delete & Reverse Stock"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
