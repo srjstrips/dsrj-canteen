@@ -248,7 +248,14 @@ managedRouter.post(
   "/orders/:id/serve",
   requireRole(Role.CANTEEN),
   asyncHandler(async (req, res) => {
-    res.json(await serveOrder(req.params.id, req.user!.sub));
+    const order = await serveOrder(req.params.id, req.user!.sub) as { orderNo: string; dinerName: string; orderType: string };
+    sendNotification({
+      type: "ORDER_PLACED",
+      title: "Order Served",
+      body: `${order.orderNo} — ${order.dinerName} (${order.orderType}) has been served`,
+      targetRoles: [Role.HOD],
+    }).catch(() => {});
+    res.json(order);
   })
 );
 
@@ -269,7 +276,14 @@ managedRouter.post(
   validateBody(extrasSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof extrasSchema>;
-    res.json(await addExtras(req.params.id, body.items, req.user!.sub));
+    const order = await addExtras(req.params.id, body.items, req.user!.sub) as { orderNo: string; dinerName: string };
+    sendNotification({
+      type: "EXTRA_RESOLVED",
+      title: "Extra Food Added — Approval Needed",
+      body: `${body.items.length} extra item(s) added for ${order.dinerName} (${order.orderNo}) — please approve or reject`,
+      targetRoles: [Role.HOD],
+    }).catch(() => {});
+    res.json(order);
   })
 );
 
@@ -300,6 +314,13 @@ managedRouter.post(
   validateBody(resolveSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof resolveSchema>;
-    res.json(await resolveExtra(req.params.itemId, body.confirm, req.user!.sub));
+    const order = await resolveExtra(req.params.itemId, body.confirm, req.user!.sub) as { orderNo: string; dinerName: string; placedBy: { id: string } };
+    sendNotification({
+      type: "EXTRA_RESOLVED",
+      title: body.confirm ? "Extra Food Approved" : "Extra Food Rejected",
+      body: `Extra item for ${order.dinerName} (${order.orderNo}) has been ${body.confirm ? "approved and will be billed" : "rejected"}`,
+      targetRoles: [Role.CANTEEN],
+    }).catch(() => {});
+    res.json(order);
   })
 );
