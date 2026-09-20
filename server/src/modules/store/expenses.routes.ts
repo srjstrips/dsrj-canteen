@@ -130,13 +130,90 @@ expensesRouter.get(
   })
 );
 
-// DELETE /store/expenses/:id
+function assertNotLocked(createdAt: string, role: string) {
+  if (role === Role.ADMIN) return;
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  if (ageMs > 48 * 60 * 60 * 1000) {
+    throw ApiError.badRequest("This entry is older than 48 hours and can no longer be edited or deleted. Contact Admin.");
+  }
+}
+
+// PATCH /store/expenses/:id — edit header + replace all items
+expensesRouter.patch(
+  "/:id",
+  validateBody(expenseSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof expenseSchema>;
+    const expense = await queryOne<{ id: string; createdAt: string }>(pool, `SELECT id, created_at AS "createdAt" FROM store_expenses WHERE id = $1`, [req.params.id]);
+    if (!expense) throw ApiError.notFound("Expense not found");
+    assertNotLocked(expense.createdAt, req.user!.role);
+
+    const result = await withTransaction(async (client) => {
+      await query(
+        client,
+        `UPDATE store_expenses SET expense_date = $2, invoice_no = $3, notes = $4, total_amount = 0 WHERE id = $1`,
+        [req.params.id, body.expenseDate ?? new Date(), body.invoiceNo ?? null, body.notes ?? null]
+      );
+      await query(client, "DELETE FROM store_expense_items WHERE expense_id = $1", [req.params.id]);
+
+      let totalAmount = 0;
+      for (const item of body.items) {
+        const baseAmount = item.qty * item.rate;
+        const gstAmount = baseAmount * (item.gstPct / 100);
+        const amount = Math.round((baseAmount + gstAmount) * 100) / 100;
+        totalAmount += amount;
+        await query(
+          client,
+          `INSERT INTO store_expense_items (expense_id, expense_name, qty, rate, gst_pct, amount) VALUES ($1,$2,$3,$4,$5,$6)`,
+          [req.params.id, item.expenseName, item.qty, item.rate, item.gstPct, amount]
+        );
+      }
+      await query(client, "UPDATE store_expenses SET total_amount = $2 WHERE id = $1", [req.params.id, totalAmount]);
+      return queryOne(client, `${EXPENSE_SELECT} WHERE e.id = $1`, [req.params.id]);
+    });
+    res.json(result);
+  })
+);
+
+// DELETE /store/expenses/:id — single delete
 expensesRouter.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    const expense = await queryOne(pool, "SELECT id FROM store_expenses WHERE id = $1", [req.params.id]);
+    const expense = await queryOne<{ id: string; createdAt: string }>(pool, `SELECT id, created_at AS "createdAt" FROM store_expenses WHERE id = $1`, [req.params.id]);
     if (!expense) throw ApiError.notFound("Expense not found");
+    assertNotLocked(expense.createdAt, req.user!.role);
     await query(pool, "DELETE FROM store_expenses WHERE id = $1", [req.params.id]);
     res.json({ success: true });
+  })
+);
+
+// DELETE /store/expenses — bulk delete (ids[] in body) or all (ids: "all")
+expensesRouter.delete(
+  "/",
+  asyncHandler(async (req, res) => {
+    const { ids } = req.body as { ids: string[] | "all" };
+    const isAdmin = req.user!.role === Role.ADMIN;
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+    if (ids === "all") {
+      const whereClause = isAdmin ? "" : `WHERE created_at >= $1`;
+      const params = isAdmin ? [] : [cutoff];
+      await query(pool, `DELETE FROM store_expenses ${whereClause}`, params);
+      return res.json({ success: true, deleted: "all" });
+    }
+    if (!Array.isArray(ids) || ids.length === 0) throw ApiError.badRequest("ids must be a non-empty array or 'all'");
+
+    // For STORE role, verify all selected entries are within 48h
+    if (!isAdmin) {
+      const locked = await query<{ id: string }>(
+        pool,
+        `SELECT id FROM store_expenses WHERE id = ANY($1::uuid[]) AND created_at < $2`,
+        [ids, cutoff]
+      );
+      if (locked.length > 0) throw ApiError.badRequest(`${locked.length} entry(s) are older than 48 hours. Contact Admin to delete them.`);
+    }
+
+    await query(pool, `DELETE FROM store_expenses WHERE id = ANY($1::uuid[])`, [ids]);
+    res.json({ success: true, deleted: ids.length });
   })
 );
