@@ -1,0 +1,1 @@
+ALTER TABLE store_expense_items ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'Pcs';

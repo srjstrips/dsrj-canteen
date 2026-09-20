@@ -6,9 +6,16 @@ import { formatCurrency, formatDate, todayInput } from "../../lib/format";
 import { Modal } from "../../components/Modal";
 import { useAuth } from "../../auth/AuthContext";
 
+const UNITS = ["Pcs", "Kg", "Litre", "Gram", "ml", "Metre"] as const;
+type Unit = typeof UNITS[number];
+
+// Hide number input spinners (cross-browser)
+const NO_SPIN = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
 interface ExpenseItem {
   expenseName: string;
   qty: string;
+  unit: Unit;
   rate: string;
   gstMode: "pct" | "amount";
   gstPct: string;
@@ -19,6 +26,7 @@ interface ExpenseItemRow {
   id: string;
   expenseName: string;
   qty: string;
+  unit: string;
   rate: string;
   gstPct: string;
   gstAmount: string;
@@ -49,7 +57,7 @@ interface MonthlySummary {
 }
 
 function emptyItem(): ExpenseItem {
-  return { expenseName: "", qty: "1", rate: "", gstMode: "pct", gstPct: "0", gstAmount: "0" };
+  return { expenseName: "", qty: "1", unit: "Pcs", rate: "", gstMode: "pct", gstPct: "0", gstAmount: "0" };
 }
 
 function calcAmount(item: ExpenseItem): number {
@@ -64,6 +72,7 @@ function rowToFormItems(rows: ExpenseItemRow[]): ExpenseItem[] {
   return rows.map((r) => ({
     expenseName: r.expenseName,
     qty: String(Number(r.qty)),
+    unit: (UNITS.includes(r.unit as Unit) ? r.unit : "Pcs") as Unit,
     rate: String(Number(r.rate)),
     gstMode: Number(r.gstAmount) > 0 && Number(r.gstPct) === 0 ? "amount" as const : "pct" as const,
     gstPct: String(Number(r.gstPct)),
@@ -71,7 +80,6 @@ function rowToFormItems(rows: ExpenseItemRow[]): ExpenseItem[] {
   }));
 }
 
-// Shared form used for both create and edit
 function ExpenseForm({
   initial,
   onSave,
@@ -104,94 +112,192 @@ function ExpenseForm({
 
   return (
     <form onSubmit={submit} className="space-y-4">
+      {/* Header fields */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className="label">Date *</label>
           <input className="input" type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} required />
         </div>
         <div>
-          <label className="label">Invoice No <span className="text-muted font-normal">(optional)</span></label>
+          <label className="label">Invoice No <span className="text-muted font-normal text-xs">(optional)</span></label>
           <input className="input" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="e.g. INV-001" />
         </div>
         <div>
-          <label className="label">Notes <span className="text-muted font-normal">(optional)</span></label>
+          <label className="label">Notes <span className="text-muted font-normal text-xs">(optional)</span></label>
           <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Monthly grinding" />
         </div>
       </div>
 
+      {/* Expense item rows */}
       <div className="space-y-2">
         <label className="label">Expense Items *</label>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead>
+
+        {/* Desktop table — hidden on mobile */}
+        <div className="hidden sm:block overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[680px] text-sm">
+            <thead className="bg-background">
               <tr className="text-xs text-muted">
-                <th className="pb-1 text-left font-semibold w-[30%]">Expense Name</th>
-                <th className="pb-1 text-left font-semibold w-[10%]">Qty</th>
-                <th className="pb-1 text-left font-semibold w-[15%]">Rate (₹)</th>
-                <th className="pb-1 text-left font-semibold w-[22%]">GST</th>
-                <th className="pb-1 text-right font-semibold w-[16%]">Amount</th>
-                <th className="w-[7%]"></th>
+                <th className="px-3 py-2 text-left font-semibold">Expense Name</th>
+                <th className="px-3 py-2 text-left font-semibold w-20">Qty</th>
+                <th className="px-3 py-2 text-left font-semibold w-24">Unit</th>
+                <th className="px-3 py-2 text-left font-semibold w-28">Rate (₹)</th>
+                <th className="px-3 py-2 text-left font-semibold w-36">GST</th>
+                <th className="px-3 py-2 text-right font-semibold w-24">Amount</th>
+                <th className="w-8"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {items.map((it, i) => (
-                <tr key={i} className="border-t border-border">
-                  <td className="py-1.5 pr-2">
-                    <input className="input !py-1.5 text-sm" placeholder="e.g. Delivery charges"
-                      value={it.expenseName} onChange={(e) => updateItem(i, { expenseName: e.target.value })} required />
+                <tr key={i} className="bg-card">
+                  <td className="px-3 py-2">
+                    <input
+                      className="input !py-1.5 text-sm"
+                      placeholder="e.g. Delivery charges"
+                      value={it.expenseName}
+                      onChange={(e) => updateItem(i, { expenseName: e.target.value })}
+                      required
+                    />
                   </td>
-                  <td className="py-1.5 pr-2">
-                    <input className="input !py-1.5 text-sm" type="number" min={0} step="0.001"
-                      value={it.qty} onChange={(e) => updateItem(i, { qty: e.target.value })} />
+                  <td className="px-3 py-2">
+                    <input
+                      className={`input !py-1.5 text-sm ${NO_SPIN}`}
+                      type="number" min={0} step="0.001"
+                      value={it.qty}
+                      onChange={(e) => updateItem(i, { qty: e.target.value })}
+                    />
                   </td>
-                  <td className="py-1.5 pr-2">
-                    <input className="input !py-1.5 text-sm" type="number" min={0} step="0.01" placeholder="0.00"
-                      value={it.rate} onChange={(e) => updateItem(i, { rate: e.target.value })} required />
+                  <td className="px-3 py-2">
+                    <select
+                      className="input !py-1.5 text-sm"
+                      value={it.unit}
+                      onChange={(e) => updateItem(i, { unit: e.target.value as Unit })}
+                    >
+                      {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
                   </td>
-                  <td className="py-1.5 pr-2">
+                  <td className="px-3 py-2">
+                    <input
+                      className={`input !py-1.5 text-sm ${NO_SPIN}`}
+                      type="number" min={0} step="0.01" placeholder="0.00"
+                      value={it.rate}
+                      onChange={(e) => updateItem(i, { rate: e.target.value })}
+                      required
+                    />
+                  </td>
+                  <td className="px-3 py-2">
                     <div className="flex gap-1 items-center">
-                      <div className="flex rounded border border-border overflow-hidden text-xs">
+                      <div className="flex rounded border border-border overflow-hidden text-xs flex-shrink-0">
                         <button type="button"
-                          className={`px-1.5 py-1 ${it.gstMode === "pct" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
-                          onClick={() => updateItem(i, { gstMode: "pct" })}
-                        >%</button>
+                          className={`px-2 py-1.5 ${it.gstMode === "pct" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
+                          onClick={() => updateItem(i, { gstMode: "pct" })}>%</button>
                         <button type="button"
-                          className={`px-1.5 py-1 ${it.gstMode === "amount" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
-                          onClick={() => updateItem(i, { gstMode: "amount" })}
-                        >₹</button>
+                          className={`px-2 py-1.5 ${it.gstMode === "amount" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
+                          onClick={() => updateItem(i, { gstMode: "amount" })}>₹</button>
                       </div>
                       {it.gstMode === "pct" ? (
-                        <input className="input !py-1.5 text-sm min-w-0" type="number" min={0} max={100} step="0.01" placeholder="0"
+                        <input className={`input !py-1.5 text-sm min-w-0 ${NO_SPIN}`} type="number" min={0} max={100} step="0.01" placeholder="0"
                           value={it.gstPct} onChange={(e) => updateItem(i, { gstPct: e.target.value })} />
                       ) : (
-                        <input className="input !py-1.5 text-sm min-w-0" type="number" min={0} step="0.01" placeholder="0.00"
+                        <input className={`input !py-1.5 text-sm min-w-0 ${NO_SPIN}`} type="number" min={0} step="0.01" placeholder="0.00"
                           value={it.gstAmount} onChange={(e) => updateItem(i, { gstAmount: e.target.value })} />
                       )}
                     </div>
                   </td>
-                  <td className="py-1.5 pr-2 text-right font-semibold text-primary">
+                  <td className="px-3 py-2 text-right font-semibold text-primary whitespace-nowrap">
                     {calcAmount(it) > 0 ? formatCurrency(calcAmount(it)) : "—"}
                   </td>
-                  <td className="py-1.5 text-center">
-                    <button type="button" className="text-muted hover:text-danger text-sm"
-                      onClick={() => setItems(items.length === 1 ? [emptyItem()] : items.filter((_, idx) => idx !== i))}>✕</button>
+                  <td className="px-3 py-2 text-center">
+                    <button type="button" className="text-muted hover:text-danger text-base leading-none"
+                      onClick={() => setItems(items.length === 1 ? [emptyItem()] : items.filter((_, idx) => idx !== i))}>
+                      ✕
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <button type="button" className="btn-secondary !py-1.5 text-xs" onClick={() => setItems([...items, emptyItem()])}>
+
+        {/* Mobile card layout — visible only on small screens */}
+        <div className="sm:hidden space-y-3">
+          {items.map((it, i) => (
+            <div key={i} className="rounded-lg border border-border bg-card p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted uppercase tracking-wide">Item {i + 1}</span>
+                <button type="button" className="text-xs text-muted hover:text-danger"
+                  onClick={() => setItems(items.length === 1 ? [emptyItem()] : items.filter((_, idx) => idx !== i))}>
+                  ✕ Remove
+                </button>
+              </div>
+
+              <div>
+                <label className="label">Expense Name *</label>
+                <input className="input" placeholder="e.g. Delivery charges"
+                  value={it.expenseName} onChange={(e) => updateItem(i, { expenseName: e.target.value })} required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Qty</label>
+                  <input className={`input ${NO_SPIN}`} type="number" min={0} step="0.001"
+                    value={it.qty} onChange={(e) => updateItem(i, { qty: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Unit</label>
+                  <select className="input" value={it.unit} onChange={(e) => updateItem(i, { unit: e.target.value as Unit })}>
+                    {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Rate (₹) *</label>
+                <input className={`input ${NO_SPIN}`} type="number" min={0} step="0.01" placeholder="0.00"
+                  value={it.rate} onChange={(e) => updateItem(i, { rate: e.target.value })} required />
+              </div>
+
+              <div>
+                <label className="label">GST</label>
+                <div className="flex gap-2 items-center">
+                  <div className="flex rounded border border-border overflow-hidden text-xs flex-shrink-0">
+                    <button type="button"
+                      className={`px-3 py-2 ${it.gstMode === "pct" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
+                      onClick={() => updateItem(i, { gstMode: "pct" })}>%</button>
+                    <button type="button"
+                      className={`px-3 py-2 ${it.gstMode === "amount" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
+                      onClick={() => updateItem(i, { gstMode: "amount" })}>₹</button>
+                  </div>
+                  {it.gstMode === "pct" ? (
+                    <input className={`input ${NO_SPIN}`} type="number" min={0} max={100} step="0.01" placeholder="0 %"
+                      value={it.gstPct} onChange={(e) => updateItem(i, { gstPct: e.target.value })} />
+                  ) : (
+                    <input className={`input ${NO_SPIN}`} type="number" min={0} step="0.01" placeholder="0.00"
+                      value={it.gstAmount} onChange={(e) => updateItem(i, { gstAmount: e.target.value })} />
+                  )}
+                </div>
+              </div>
+
+              {calcAmount(it) > 0 && (
+                <div className="flex justify-between text-sm border-t border-border pt-2">
+                  <span className="text-muted">Amount</span>
+                  <span className="font-bold text-primary">{formatCurrency(calcAmount(it))}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button type="button" className="btn-secondary !py-1.5 text-sm" onClick={() => setItems([...items, emptyItem()])}>
           + Add Row
         </button>
       </div>
 
-      <div className="flex items-center justify-between border-t border-border pt-3">
+      <div className="flex items-center justify-between rounded-lg bg-background border border-border px-4 py-3">
         <span className="text-sm font-semibold text-muted">Grand Total</span>
         <span className="text-xl font-bold text-primary">{formatCurrency(grandTotal)}</span>
       </div>
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-3 pt-1">
         <button type="button" className="btn-secondary flex-1" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn-primary flex-1" disabled={saving}>
           {saving ? "Saving…" : "Save Expense"}
@@ -215,7 +321,6 @@ export function StoreExpenses() {
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDeleteIds, setConfirmDeleteIds] = useState<string[] | "all" | null>(null);
 
@@ -270,7 +375,15 @@ export function StoreExpenses() {
       expenseDate: d.expenseDate,
       invoiceNo: d.invoiceNo || undefined,
       notes: d.notes || undefined,
-      items: d.items.map((it) => ({ expenseName: it.expenseName, qty: Number(it.qty), rate: Number(it.rate), gstMode: it.gstMode, gstPct: Number(it.gstPct) || 0, gstAmount: Number(it.gstAmount) || 0 })),
+      items: d.items.map((it) => ({
+        expenseName: it.expenseName,
+        qty: Number(it.qty),
+        unit: it.unit,
+        rate: Number(it.rate),
+        gstMode: it.gstMode,
+        gstPct: Number(it.gstPct) || 0,
+        gstAmount: Number(it.gstAmount) || 0,
+      })),
     };
   }
 
@@ -357,23 +470,17 @@ export function StoreExpenses() {
             {allSelected ? "Deselect all" : "Select all"}
           </label>
           {selected.size > 0 && (
-            <button
-              className="btn-danger !px-3 !py-1.5 text-xs"
-              onClick={() => setConfirmDeleteIds([...selected])}
-            >
+            <button className="btn-danger !px-3 !py-1.5 text-xs" onClick={() => setConfirmDeleteIds([...selected])}>
               Delete selected ({selected.size})
             </button>
           )}
           {isAdmin && (
-            <button
-              className="btn-secondary !px-3 !py-1.5 text-xs text-danger hover:border-danger ml-auto"
-              onClick={() => setConfirmDeleteIds("all")}
-            >
+            <button className="btn-secondary !px-3 !py-1.5 text-xs text-danger hover:border-danger ml-auto" onClick={() => setConfirmDeleteIds("all")}>
               Delete All
             </button>
           )}
           {!isAdmin && (
-            <span className="ml-auto text-xs text-muted">🔒 Entries older than 48h are locked — contact Admin to delete</span>
+            <span className="ml-auto text-xs text-muted">Entries older than 48h are locked — contact Admin to delete</span>
           )}
         </div>
       )}
@@ -387,7 +494,6 @@ export function StoreExpenses() {
         {expenses?.map((exp) => (
           <div key={exp.id} className={`card p-0 overflow-hidden transition ${selected.has(exp.id) ? "ring-1 ring-primary border-primary" : ""}`}>
             <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-              {/* Checkbox */}
               <input
                 type="checkbox"
                 checked={selected.has(exp.id)}
@@ -395,8 +501,6 @@ export function StoreExpenses() {
                 className="h-4 w-4 accent-primary flex-shrink-0"
                 onClick={(e) => e.stopPropagation()}
               />
-
-              {/* Expand toggle */}
               <button
                 className="flex flex-1 items-center gap-3 text-left"
                 onClick={() => setExpandedId(expandedId === exp.id ? null : exp.id)}
@@ -411,14 +515,13 @@ export function StoreExpenses() {
                   </p>
                 </div>
               </button>
-
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="text-right">
                   <p className="font-bold text-primary">{formatCurrency(exp.totalAmount)}</p>
                   <p className="text-xs text-muted">{exp.items.length} item{exp.items.length !== 1 ? "s" : ""} · {exp.createdBy.name}</p>
                 </div>
                 {!isAdmin && isLocked(exp.createdAt) ? (
-                  <span className="text-xs text-muted px-2">🔒 Locked</span>
+                  <span className="text-xs text-muted px-2 py-1 rounded border border-border">Locked</span>
                 ) : (
                   <>
                     <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => setEditing(exp)}>Edit</button>
@@ -435,6 +538,7 @@ export function StoreExpenses() {
                     <tr>
                       <th>Expense Name</th>
                       <th className="text-right">Qty</th>
+                      <th>Unit</th>
                       <th className="text-right">Rate (₹)</th>
                       <th className="text-right">GST</th>
                       <th className="text-right">Amount</th>
@@ -445,6 +549,7 @@ export function StoreExpenses() {
                       <tr key={it.id}>
                         <td className="font-medium">{it.expenseName}</td>
                         <td className="text-right">{Number(it.qty)}</td>
+                        <td className="text-muted text-xs">{it.unit || "Pcs"}</td>
                         <td className="text-right">{formatCurrency(it.rate)}</td>
                         <td className="text-right">
                           {Number(it.gstAmount) > 0
@@ -455,7 +560,7 @@ export function StoreExpenses() {
                       </tr>
                     ))}
                     <tr className="bg-background font-bold">
-                      <td colSpan={4} className="text-right text-xs uppercase tracking-wide text-muted">Total</td>
+                      <td colSpan={5} className="text-right text-xs uppercase tracking-wide text-muted">Total</td>
                       <td className="text-right text-primary">{formatCurrency(exp.totalAmount)}</td>
                     </tr>
                   </tbody>
