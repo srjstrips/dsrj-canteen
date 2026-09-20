@@ -77,7 +77,23 @@ export function Statements() {
               <h2 className="text-sm font-semibold">Product-wise summary</h2>
               <ExcelButton filename={`statement-${statement.account.name}-products`} rows={statement.productWiseSummary as unknown as Record<string, unknown>[]} />
             </div>
-            <div className="card overflow-x-auto p-0">
+            {/* Mobile */}
+            <div className="sm:hidden space-y-2">
+              {statement.productWiseSummary.length === 0 && (
+                <div className="card text-sm text-muted">No billable items this month.</div>
+              )}
+              {statement.productWiseSummary.map((p) => (
+                <div key={p.productId} className="card p-3 flex items-center justify-between gap-2">
+                  <p className="font-medium text-sm">{p.name}</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs text-muted">{formatQty(p.quantity)}</p>
+                    <p className="font-semibold text-primary">{formatCurrency(p.amount)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop */}
+            <div className="hidden sm:block card overflow-x-auto p-0">
               <table className="table-base">
                 <thead>
                   <tr>
@@ -88,11 +104,7 @@ export function Statements() {
                 </thead>
                 <tbody>
                   {statement.productWiseSummary.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="text-muted">
-                        No billable items this month.
-                      </td>
-                    </tr>
+                    <tr><td colSpan={3} className="text-muted">No billable items this month.</td></tr>
                   )}
                   {statement.productWiseSummary.map((p) => (
                     <tr key={p.productId}>
@@ -111,7 +123,23 @@ export function Statements() {
               <h2 className="text-sm font-semibold">Orders</h2>
               <ExcelButton filename={`statement-${statement.account.name}-orders`} rows={statement.orders as unknown as Record<string, unknown>[]} />
             </div>
-            <div className="card overflow-x-auto p-0">
+            {/* Mobile */}
+            <div className="sm:hidden space-y-2">
+              {statement.orders.map((o) => (
+                <div key={o.id} className="card p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-sm">{o.dinerName}</p>
+                      <p className="text-xs text-muted">{o.orderNo} · {o.orderType}</p>
+                      <p className="text-xs text-muted">{formatDate(o.orderDate)}</p>
+                    </div>
+                    <p className="font-semibold text-primary flex-shrink-0">{formatCurrency(o.total)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop */}
+            <div className="hidden sm:block card overflow-x-auto p-0">
               <table className="table-base">
                 <thead>
                   <tr>

@@ -37,56 +37,76 @@ export function Approvals() {
 
       {pending.map((o) => (
         <div key={o.id} className="card space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="font-semibold">
-                {o.dinerName} <span className="text-muted">· {o.orderNo}</span>
-              </p>
-              <p className="text-xs text-muted">
-                {o.orderType} · {o.account.name} {o.shift ? `· ${o.shift}` : ""}
-              </p>
-            </div>
+          <div>
+            <p className="font-semibold">
+              {o.dinerName} <span className="text-muted">· {o.orderNo}</span>
+            </p>
+            <p className="text-xs text-muted">
+              {o.orderType} · {o.account.name} {o.shift ? `· ${o.shift}` : ""}
+            </p>
           </div>
-          <div className="overflow-x-auto">
-          <table className="table-base min-w-[400px]">
-            <thead>
-              <tr>
-                <th>Extra Item</th>
-                <th className="text-right">Qty</th>
-                <th className="text-right">Amount</th>
-                <th className="text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {o.items
-                .filter((i) => i.isExtra && i.extraStatus === "PENDING")
-                .map((i) => (
-                  <tr key={i.id}>
-                    <td>{i.product.name}</td>
-                    <td className="text-right">
-                      {formatQty(i.quantity)} {i.product.unit.symbol}
-                    </td>
-                    <td className="text-right">{formatCurrency(i.amount)}</td>
-                    <td className="space-x-2 whitespace-nowrap text-right">
-                      <button
-                        className="btn-primary !px-3 !py-1 text-xs"
-                        disabled={resolve.isPending}
-                        onClick={() => resolve.mutate({ itemId: i.id, confirm: true })}
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        className="btn-secondary !px-3 !py-1 text-xs"
-                        disabled={resolve.isPending}
-                        onClick={() => resolve.mutate({ itemId: i.id, confirm: false })}
-                      >
-                        Reject
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+
+          {/* Mobile: item cards */}
+          <div className="sm:hidden space-y-2">
+            {o.items
+              .filter((i) => i.isExtra && i.extraStatus === "PENDING")
+              .map((i) => (
+                <div key={i.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">{i.product.name}</p>
+                    <p className="text-xs text-muted">{formatQty(i.quantity)} {i.product.unit.symbol} · {formatCurrency(i.amount)}</p>
+                  </div>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button
+                      className="btn-primary !px-3 !py-1.5 text-xs"
+                      disabled={resolve.isPending}
+                      onClick={() => resolve.mutate({ itemId: i.id, confirm: true })}
+                    >Confirm</button>
+                    <button
+                      className="btn-secondary !px-3 !py-1.5 text-xs"
+                      disabled={resolve.isPending}
+                      onClick={() => resolve.mutate({ itemId: i.id, confirm: false })}
+                    >Reject</button>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="table-base min-w-[400px]">
+              <thead>
+                <tr>
+                  <th>Extra Item</th>
+                  <th className="text-right">Qty</th>
+                  <th className="text-right">Amount</th>
+                  <th className="text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {o.items
+                  .filter((i) => i.isExtra && i.extraStatus === "PENDING")
+                  .map((i) => (
+                    <tr key={i.id}>
+                      <td>{i.product.name}</td>
+                      <td className="text-right">{formatQty(i.quantity)} {i.product.unit.symbol}</td>
+                      <td className="text-right">{formatCurrency(i.amount)}</td>
+                      <td className="space-x-2 whitespace-nowrap text-right">
+                        <button
+                          className="btn-primary !px-3 !py-1 text-xs"
+                          disabled={resolve.isPending}
+                          onClick={() => resolve.mutate({ itemId: i.id, confirm: true })}
+                        >Confirm</button>
+                        <button
+                          className="btn-secondary !px-3 !py-1 text-xs"
+                          disabled={resolve.isPending}
+                          onClick={() => resolve.mutate({ itemId: i.id, confirm: false })}
+                        >Reject</button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ))}
