@@ -1,5 +1,5 @@
 -- Store Expenses: record any miscellaneous expense (delivery, grinding, labour, etc.)
-CREATE TABLE store_expenses (
+CREATE TABLE IF NOT EXISTS store_expenses (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   expense_date  DATE NOT NULL DEFAULT CURRENT_DATE,
   expense_no    TEXT NOT NULL UNIQUE,
@@ -10,7 +10,7 @@ CREATE TABLE store_expenses (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE store_expense_items (
+CREATE TABLE IF NOT EXISTS store_expense_items (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   expense_id    UUID NOT NULL REFERENCES store_expenses(id) ON DELETE CASCADE,
   expense_name  TEXT NOT NULL,
