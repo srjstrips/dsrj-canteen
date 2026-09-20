@@ -16,7 +16,9 @@ const itemSchema = z.object({
   expenseName: z.string().min(1, "Expense name is required"),
   qty: z.number().positive("Qty must be > 0"),
   rate: z.number().nonnegative("Rate cannot be negative"),
+  gstMode: z.enum(["pct", "amount"]).default("pct"),
   gstPct: z.number().min(0).max(100).default(0),
+  gstAmount: z.number().nonnegative().default(0),
 });
 
 const expenseSchema = z.object({
@@ -39,6 +41,7 @@ const EXPENSE_SELECT = `
       'qty', ei.qty,
       'rate', ei.rate,
       'gstPct', ei.gst_pct,
+      'gstAmount', ei.gst_amount,
       'amount', ei.amount
     ) ORDER BY ei.created_at) AS items
     FROM store_expense_items ei
@@ -67,15 +70,20 @@ expensesRouter.post(
       let totalAmount = 0;
       for (const item of body.items) {
         const baseAmount = item.qty * item.rate;
-        const gstAmount = baseAmount * (item.gstPct / 100);
-        const amount = Math.round((baseAmount + gstAmount) * 100) / 100;
+        const resolvedGstAmount = item.gstMode === "amount"
+          ? item.gstAmount
+          : Math.round(baseAmount * (item.gstPct / 100) * 100) / 100;
+        const resolvedGstPct = item.gstMode === "amount"
+          ? (baseAmount > 0 ? Math.round((item.gstAmount / baseAmount) * 10000) / 100 : 0)
+          : item.gstPct;
+        const amount = Math.round((baseAmount + resolvedGstAmount) * 100) / 100;
         totalAmount += amount;
 
         await query(
           client,
-          `INSERT INTO store_expense_items (expense_id, expense_name, qty, rate, gst_pct, amount)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [expenseId, item.expenseName, item.qty, item.rate, item.gstPct, amount]
+          `INSERT INTO store_expense_items (expense_id, expense_name, qty, rate, gst_pct, gst_amount, amount)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [expenseId, item.expenseName, item.qty, item.rate, resolvedGstPct, resolvedGstAmount, amount]
         );
       }
 

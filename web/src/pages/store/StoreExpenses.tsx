@@ -10,7 +10,9 @@ interface ExpenseItem {
   expenseName: string;
   qty: string;
   rate: string;
+  gstMode: "pct" | "amount";
   gstPct: string;
+  gstAmount: string;
 }
 
 interface ExpenseItemRow {
@@ -19,6 +21,7 @@ interface ExpenseItemRow {
   qty: string;
   rate: string;
   gstPct: string;
+  gstAmount: string;
   amount: string;
 }
 
@@ -46,12 +49,15 @@ interface MonthlySummary {
 }
 
 function emptyItem(): ExpenseItem {
-  return { expenseName: "", qty: "1", rate: "", gstPct: "0" };
+  return { expenseName: "", qty: "1", rate: "", gstMode: "pct", gstPct: "0", gstAmount: "0" };
 }
 
 function calcAmount(item: ExpenseItem): number {
   const base = (Number(item.qty) || 0) * (Number(item.rate) || 0);
-  return Math.round((base + base * ((Number(item.gstPct) || 0) / 100)) * 100) / 100;
+  const gst = item.gstMode === "amount"
+    ? (Number(item.gstAmount) || 0)
+    : base * ((Number(item.gstPct) || 0) / 100);
+  return Math.round((base + gst) * 100) / 100;
 }
 
 function rowToFormItems(rows: ExpenseItemRow[]): ExpenseItem[] {
@@ -59,7 +65,9 @@ function rowToFormItems(rows: ExpenseItemRow[]): ExpenseItem[] {
     expenseName: r.expenseName,
     qty: String(Number(r.qty)),
     rate: String(Number(r.rate)),
+    gstMode: Number(r.gstAmount) > 0 && Number(r.gstPct) === 0 ? "amount" as const : "pct" as const,
     gstPct: String(Number(r.gstPct)),
+    gstAmount: String(Number(r.gstAmount)),
   }));
 }
 
@@ -117,10 +125,10 @@ function ExpenseForm({
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="text-xs text-muted">
-                <th className="pb-1 text-left font-semibold w-[35%]">Expense Name</th>
-                <th className="pb-1 text-left font-semibold w-[12%]">Qty</th>
-                <th className="pb-1 text-left font-semibold w-[18%]">Rate (₹)</th>
-                <th className="pb-1 text-left font-semibold w-[12%]">GST %</th>
+                <th className="pb-1 text-left font-semibold w-[30%]">Expense Name</th>
+                <th className="pb-1 text-left font-semibold w-[10%]">Qty</th>
+                <th className="pb-1 text-left font-semibold w-[15%]">Rate (₹)</th>
+                <th className="pb-1 text-left font-semibold w-[22%]">GST</th>
                 <th className="pb-1 text-right font-semibold w-[16%]">Amount</th>
                 <th className="w-[7%]"></th>
               </tr>
@@ -141,8 +149,25 @@ function ExpenseForm({
                       value={it.rate} onChange={(e) => updateItem(i, { rate: e.target.value })} required />
                   </td>
                   <td className="py-1.5 pr-2">
-                    <input className="input !py-1.5 text-sm" type="number" min={0} max={100} step="0.01" placeholder="0"
-                      value={it.gstPct} onChange={(e) => updateItem(i, { gstPct: e.target.value })} />
+                    <div className="flex gap-1 items-center">
+                      <div className="flex rounded border border-border overflow-hidden text-xs">
+                        <button type="button"
+                          className={`px-1.5 py-1 ${it.gstMode === "pct" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
+                          onClick={() => updateItem(i, { gstMode: "pct" })}
+                        >%</button>
+                        <button type="button"
+                          className={`px-1.5 py-1 ${it.gstMode === "amount" ? "bg-primary text-white" : "bg-card text-ink hover:bg-background"}`}
+                          onClick={() => updateItem(i, { gstMode: "amount" })}
+                        >₹</button>
+                      </div>
+                      {it.gstMode === "pct" ? (
+                        <input className="input !py-1.5 text-sm min-w-0" type="number" min={0} max={100} step="0.01" placeholder="0"
+                          value={it.gstPct} onChange={(e) => updateItem(i, { gstPct: e.target.value })} />
+                      ) : (
+                        <input className="input !py-1.5 text-sm min-w-0" type="number" min={0} step="0.01" placeholder="0.00"
+                          value={it.gstAmount} onChange={(e) => updateItem(i, { gstAmount: e.target.value })} />
+                      )}
+                    </div>
                   </td>
                   <td className="py-1.5 pr-2 text-right font-semibold text-primary">
                     {calcAmount(it) > 0 ? formatCurrency(calcAmount(it)) : "—"}
@@ -245,7 +270,7 @@ export function StoreExpenses() {
       expenseDate: d.expenseDate,
       invoiceNo: d.invoiceNo || undefined,
       notes: d.notes || undefined,
-      items: d.items.map((it) => ({ expenseName: it.expenseName, qty: Number(it.qty), rate: Number(it.rate), gstPct: Number(it.gstPct) || 0 })),
+      items: d.items.map((it) => ({ expenseName: it.expenseName, qty: Number(it.qty), rate: Number(it.rate), gstMode: it.gstMode, gstPct: Number(it.gstPct) || 0, gstAmount: Number(it.gstAmount) || 0 })),
     };
   }
 
@@ -411,7 +436,7 @@ export function StoreExpenses() {
                       <th>Expense Name</th>
                       <th className="text-right">Qty</th>
                       <th className="text-right">Rate (₹)</th>
-                      <th className="text-right">GST %</th>
+                      <th className="text-right">GST</th>
                       <th className="text-right">Amount</th>
                     </tr>
                   </thead>
@@ -421,7 +446,11 @@ export function StoreExpenses() {
                         <td className="font-medium">{it.expenseName}</td>
                         <td className="text-right">{Number(it.qty)}</td>
                         <td className="text-right">{formatCurrency(it.rate)}</td>
-                        <td className="text-right">{Number(it.gstPct) > 0 ? `${it.gstPct}%` : "—"}</td>
+                        <td className="text-right">
+                          {Number(it.gstAmount) > 0
+                            ? <>{formatCurrency(it.gstAmount)}<span className="text-muted text-xs ml-1">({Number(it.gstPct).toFixed(1)}%)</span></>
+                            : Number(it.gstPct) > 0 ? `${it.gstPct}%` : "—"}
+                        </td>
                         <td className="text-right font-semibold">{formatCurrency(it.amount)}</td>
                       </tr>
                     ))}
