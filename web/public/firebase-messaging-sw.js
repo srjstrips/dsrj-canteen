@@ -16,7 +16,11 @@ messaging.onBackgroundMessage((payload) => {
   const { title = "Notification", body = "" } = payload.notification ?? {};
   self.registration.showNotification(title, {
     body,
-    icon: "/logo192.png",
+    icon: "/icon-192.svg",
+    badge: "/icon-192.svg",
+    vibrate: [200, 100, 200],
+    tag: payload.data?.type ?? "dsrj-notification",
     data: payload.data,
+    requireInteraction: false,
   });
 });

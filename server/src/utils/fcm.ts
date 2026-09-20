@@ -74,12 +74,34 @@ export async function sendNotification(payload: NotifyPayload): Promise<void> {
           tokens: batch,
           notification: { title: payload.title, body: payload.body },
           data: { type: payload.type, ...(payload.data ?? {}) },
+          android: {
+            priority: "high",
+            notification: {
+              title: payload.title,
+              body: payload.body,
+              channelId: "dsrj_default",
+              sound: "default",
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              notificationPriority: "PRIORITY_HIGH",
+              visibility: "PUBLIC",
+              icon: "ic_launcher",
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+                badge: 1,
+              },
+            },
+          },
           webpush: {
             notification: {
               title: payload.title,
               body: payload.body,
-              icon: "/icon-192.png",
-              badge: "/icon-192.png",
+              icon: "/icon-192.svg",
+              badge: "/icon-192.svg",
             },
             fcmOptions: { link: "/" },
           },

@@ -1,10 +1,13 @@
 import { useEffect } from "react";
+import toast from "react-hot-toast";
 import { useAuth } from "../auth/AuthContext";
-import { requestPushToken } from "../lib/firebase";
+import { requestPushToken, onForegroundMessage } from "../lib/firebase";
 import { api } from "../api/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function usePushToken() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!user) return;
@@ -19,5 +22,14 @@ export function usePushToken() {
         }
       })
       .catch(() => {});
+
+    // Show toast for foreground notifications and refresh unread count
+    const unsub = onForegroundMessage(({ title, body }) => {
+      toast(`🔔 ${title}${body ? `\n${body}` : ""}`, { duration: 6000 });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications", "unread-count"] });
+    });
+
+    return () => { unsub(); };
   }, [user?.id]);
 }
