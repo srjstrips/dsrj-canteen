@@ -28,6 +28,7 @@ import {
   Scale,
   RotateCcw,
   Ticket,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { Role } from "../types";
@@ -62,6 +63,7 @@ export const navSections: NavSection[] = [
       { label: "Return Stock from Canteen", to: "/store/stock-return", icon: Undo2, roles: ["STORE"] },
       { label: "Stock Ledger", to: "/store/ledger", icon: BookOpen, roles: ["STORE"] },
       { label: "Store Reports", to: "/store/reports", icon: BarChart3, roles: ["STORE"] },
+      { label: "Store Expenses", to: "/store/expenses", icon: Receipt, roles: ["STORE"] },
     ],
   },
   {

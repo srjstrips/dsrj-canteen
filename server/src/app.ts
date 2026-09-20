@@ -10,6 +10,7 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { usersRouter } from "./modules/users/users.routes";
 import { categoriesRouter, unitsRouter, productsRouter, suppliersRouter } from "./modules/masters/masters.routes";
 import { storeRouter } from "./modules/store/store.routes";
+import { expensesRouter } from "./modules/store/expenses.routes";
 import { canteenRouter } from "./modules/canteen/canteen.routes";
 import { reportsRouter } from "./modules/reports/reports.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
@@ -41,6 +42,7 @@ export function createApp() {
   app.use("/api/masters/products", productsRouter);
   app.use("/api/masters/suppliers", suppliersRouter);
   app.use("/api/store", storeRouter);
+  app.use("/api/store/expenses", expensesRouter);
   app.use("/api/canteen", canteenRouter);
   app.use("/api/reports", reportsRouter);
   app.use("/api/dashboard", dashboardRouter);

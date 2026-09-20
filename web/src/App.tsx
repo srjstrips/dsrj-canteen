@@ -26,6 +26,7 @@ import { StockIssue } from "./pages/store/StockIssue";
 import { StoreReturn } from "./pages/store/StoreReturn";
 import { StoreLedger } from "./pages/store/StoreLedger";
 import { StoreReports } from "./pages/store/StoreReports";
+import { StoreExpenses } from "./pages/store/StoreExpenses";
 import { CanteenDashboard } from "./pages/canteen/CanteenDashboard";
 import { ReceivedStock } from "./pages/canteen/ReceivedStock";
 import { CanteenStock } from "./pages/canteen/CanteenStock";
@@ -89,6 +90,7 @@ export function App() {
             <Route path="/store/stock-return" element={<StoreReturn />} />
             <Route path="/store/ledger" element={<StoreLedger />} />
             <Route path="/store/reports" element={<StoreReports />} />
+            <Route path="/store/expenses" element={<StoreExpenses />} />
           </Route>
           <Route element={<ProtectedRoute allow={["STORE", "CANTEEN"]} />}>
             <Route path="/store/stock" element={<StoreStock />} />
