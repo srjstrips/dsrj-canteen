@@ -323,7 +323,7 @@ export function PlaceOrders() {
                   </div>
 
                   {/* Item cards grid */}
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     {visibleItems.map((p) => {
                       const qty = selectedCards[p.id] ?? 0;
                       const selected = qty > 0;
@@ -341,40 +341,38 @@ export function PlaceOrders() {
                             {imgUrl ? (
                               <img src={imgUrl} alt={p.name} className="h-full w-full object-cover" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center text-3xl">🍽</div>
+                              <div className="flex h-full w-full items-center justify-center text-4xl">🍽</div>
                             )}
+                            {selected && <div className="absolute inset-0 bg-primary/10" />}
                             {selected && (
-                              <div className="absolute inset-0 bg-primary/10" />
-                            )}
-                            {selected && (
-                              <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white text-xs font-bold shadow">✓</span>
+                              <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white text-xs font-bold shadow">✓</span>
                             )}
                           </div>
 
                           {/* Info */}
-                          <div className="px-2 py-2">
-                            <p className={`truncate text-xs font-semibold leading-tight ${selected ? "text-primary" : "text-ink"}`}>
+                          <div className="px-2.5 py-2.5">
+                            <p className={`truncate text-sm font-semibold leading-tight ${selected ? "text-primary" : "text-ink"}`}>
                               {p.name}
                             </p>
-                            <p className="mt-0.5 text-xs font-medium text-muted">
+                            <p className="mt-0.5 text-xs font-semibold text-muted">
                               {p.sellPrice ? `₹${Number(p.sellPrice).toFixed(0)}` : "—"}
                             </p>
 
                             {/* Qty stepper — shown when selected */}
                             {selected && (
                               <div
-                                className="mt-1.5 flex items-center justify-between rounded-lg bg-primary/10 px-1 py-0.5"
+                                className="mt-2 flex items-center justify-between rounded-lg bg-primary/10 px-1.5 py-1"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <button
                                   type="button"
-                                  className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-primary font-bold text-sm shadow-sm border border-primary/30 hover:bg-primary hover:text-white transition-colors"
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary font-bold text-base shadow-sm border border-primary/30 hover:bg-primary hover:text-white transition-colors"
                                   onClick={() => setCardQty(p.id, qty - 1)}
                                 >−</button>
-                                <span className="text-xs font-bold text-primary">{qty}</span>
+                                <span className="text-sm font-bold text-primary">{qty}</span>
                                 <button
                                   type="button"
-                                  className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white font-bold text-sm shadow-sm hover:bg-primary/80 transition-colors"
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white font-bold text-base shadow-sm hover:bg-primary/80 transition-colors"
                                   onClick={() => setCardQty(p.id, qty + 1)}
                                 >+</button>
                               </div>
@@ -598,8 +596,8 @@ export function PlaceOrders() {
                 }
 
                 return (
-                  <div className="max-h-72 overflow-y-auto pr-1">
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  <div className="max-h-80 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                       {foodItems.map((p) => {
                         const qty = editSelected[p.id] ?? 0;
                         const selected = qty > 0;
@@ -616,18 +614,18 @@ export function PlaceOrders() {
                               {imgUrl ? (
                                 <img src={imgUrl} alt={p.name} className="h-full w-full object-cover" />
                               ) : (
-                                <div className="flex h-full w-full items-center justify-center text-2xl">🍽</div>
+                                <div className="flex h-full w-full items-center justify-center text-3xl">🍽</div>
                               )}
-                              {selected && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">✓</span>}
+                              {selected && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">✓</span>}
                             </div>
-                            <div className="px-1.5 py-1.5">
-                              <p className={`truncate text-[11px] font-semibold ${selected ? "text-primary" : "text-ink"}`}>{p.name}</p>
-                              <p className="text-[10px] text-muted">{p.sellPrice ? `₹${Number(p.sellPrice).toFixed(0)}` : "—"}</p>
+                            <div className="px-2 py-2">
+                              <p className={`truncate text-xs font-semibold leading-tight ${selected ? "text-primary" : "text-ink"}`}>{p.name}</p>
+                              <p className="mt-0.5 text-xs text-muted font-medium">{p.sellPrice ? `₹${Number(p.sellPrice).toFixed(0)}` : "—"}</p>
                               {selected && (
-                                <div className="mt-1 flex items-center justify-between rounded bg-primary/10 px-0.5 py-0.5" onClick={(e) => e.stopPropagation()}>
-                                  <button type="button" className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-primary font-bold text-xs border border-primary/30" onClick={() => setEditCardQty(p.id, qty - 1)}>−</button>
-                                  <span className="text-[10px] font-bold text-primary">{qty}</span>
-                                  <button type="button" className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-white font-bold text-xs" onClick={() => setEditCardQty(p.id, qty + 1)}>+</button>
+                                <div className="mt-1.5 flex items-center justify-between rounded-lg bg-primary/10 px-1 py-0.5" onClick={(e) => e.stopPropagation()}>
+                                  <button type="button" className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-primary font-bold text-sm border border-primary/30 hover:bg-primary hover:text-white transition-colors" onClick={() => setEditCardQty(p.id, qty - 1)}>−</button>
+                                  <span className="text-xs font-bold text-primary">{qty}</span>
+                                  <button type="button" className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white font-bold text-sm hover:bg-primary/80 transition-colors" onClick={() => setEditCardQty(p.id, qty + 1)}>+</button>
                                 </div>
                               )}
                             </div>
