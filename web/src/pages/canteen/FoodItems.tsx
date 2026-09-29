@@ -7,6 +7,7 @@ import { Modal } from "../../components/Modal";
 import { Product } from "../../types";
 import { formatCurrency } from "../../lib/format";
 import { MasterImport } from "../../components/MasterImport";
+import { ExcelButton } from "../../components/ExcelButton";
 
 export function FoodItems() {
   const queryClient = useQueryClient();
@@ -91,6 +92,10 @@ export function FoodItems() {
           <p className="text-sm text-muted">Prepared food sold at the counter — just name &amp; price. These do not use canteen stock.</p>
         </div>
         <div className="flex gap-2">
+          <ExcelButton
+            filename="food-items"
+            rows={items?.map((p) => ({ Name: p.name, Category: p.category?.name ?? "", Price: p.sellPrice ?? "", Status: p.active ? "Active" : "Inactive" }))}
+          />
           <MasterImport
             entity="food-items"
             filename="food-items-template.xlsx"

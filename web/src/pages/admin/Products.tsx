@@ -5,6 +5,7 @@ import { api, apiErrorMessage } from "../../api/client";
 import { useCategories, useStoreProducts, useUnits } from "../../api/queries";
 import { Modal } from "../../components/Modal";
 import { MasterImport } from "../../components/MasterImport";
+import { ExcelButton } from "../../components/ExcelButton";
 import { Product } from "../../types";
 
 const emptyForm = {
@@ -100,9 +101,15 @@ export function Products() {
           <h1 className="text-xl font-bold">Product Master</h1>
           <p className="text-sm text-muted">Centralized product list used everywhere via dropdown — no free-typing product names</p>
         </div>
-        <button className="btn-primary" onClick={openCreate}>
-          + New Product
-        </button>
+        <div className="flex gap-2">
+          <ExcelButton
+            filename="products"
+            rows={products?.map((p) => ({ Name: p.name, Category: p.category.name, Unit: p.unit.symbol, "Min Stock": p.minStockLevel, Status: p.active ? "Active" : "Inactive" }))}
+          />
+          <button className="btn-primary" onClick={openCreate}>
+            + New Product
+          </button>
+        </div>
       </div>
 
       <MasterImport
