@@ -83,7 +83,6 @@ export async function sendNotification(payload: NotifyPayload): Promise<void> {
               sound: "default",
               defaultSound: true,
               defaultVibrateTimings: true,
-              notificationPriority: "PRIORITY_HIGH",
               visibility: "public",
               icon: "ic_launcher",
             },
