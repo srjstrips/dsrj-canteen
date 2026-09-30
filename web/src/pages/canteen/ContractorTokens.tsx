@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
-import { todayInput, formatDate } from "../../lib/format";
 
 interface ContractorBalance {
   accountId: string;
@@ -10,161 +9,90 @@ interface ContractorBalance {
   balance: number;
 }
 
-interface LabourEntry {
-  id: string;
-  accountId: string;
-  accountName: string;
-  entryDate: string;
-  entryNo: number;
-  labourName: string | null;
-  status: string;
-  servedAt: string | null;
-  createdAt: string;
-}
-
-function isLocked(servedAt: string | null): boolean {
-  if (!servedAt) return false;
-  return Date.now() - new Date(servedAt).getTime() > 24 * 60 * 60 * 1000;
+interface DeductState {
+  [accountId: string]: string;
 }
 
 export function ContractorTokens() {
   const queryClient = useQueryClient();
-  const [date, setDate] = useState(todayInput());
+  const [deductQty, setDeductQty] = useState<DeductState>({});
 
-  const { data: contractors } = useQuery({
+  const { data: contractors, isLoading } = useQuery({
     queryKey: ["token-balances"],
     queryFn: async () => (await api.get<ContractorBalance[]>("/tokens/balances")).data,
+    refetchInterval: 60000,
   });
 
-  const { data: entries, isLoading } = useQuery({
-    queryKey: ["labour-entries", date],
-    queryFn: async () =>
-      (await api.get<LabourEntry[]>("/labour/pending", { params: { date } })).data,
-    refetchInterval: 30000,
-  });
-
-  const serveMutation = useMutation({
-    mutationFn: async (id: string) => api.post<{ balance: number }>(`/labour/${id}/serve`),
-    onSuccess: (res, id) => {
-      toast.success(`Served — contractor balance: ${res.data.balance} tokens`);
-      queryClient.invalidateQueries({ queryKey: ["labour-entries", date] });
+  const deductMutation = useMutation({
+    mutationFn: async ({ accountId, quantity }: { accountId: string; quantity: number }) =>
+      api.post<{ balance: number }>(`/tokens/${accountId}/deduct`, { quantity }),
+    onSuccess: (res, { accountId }) => {
+      toast.success(`Deducted — new balance: ${res.data.balance} tokens`);
+      setDeductQty((prev) => ({ ...prev, [accountId]: "" }));
       queryClient.invalidateQueries({ queryKey: ["token-balances"] });
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
 
-  // Group entries by contractor
-  const byContractor = (entries ?? []).reduce<Record<string, LabourEntry[]>>((acc, e) => {
-    if (!acc[e.accountId]) acc[e.accountId] = [];
-    acc[e.accountId].push(e);
-    return acc;
-  }, {});
-
-  const balanceOf = (accountId: string) =>
-    contractors?.find((c) => c.accountId === accountId)?.balance ?? "—";
-
-  const pendingCount = (entries ?? []).filter((e) => e.status === "PENDING").length;
-  const servedCount = (entries ?? []).filter((e) => e.status === "SERVED").length;
+  const handleDeduct = (accountId: string) => {
+    const qty = parseInt(deductQty[accountId] ?? "", 10);
+    if (!qty || qty <= 0) return toast.error("Enter a valid number of labourers");
+    deductMutation.mutate({ accountId, quantity: qty });
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">Contractor Tokens</h1>
-        <p className="text-sm text-muted">Mark each labour as served when they eat. Served entries lock after 24 hours.</p>
-      </div>
-
-      {/* Date picker + summary */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div>
-          <label className="label">Date</label>
-          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </div>
-        {entries && (
-          <div className="flex gap-3 mt-5">
-            <span className="badge-warning">{pendingCount} Pending</span>
-            <span className="badge-success">{servedCount} Served</span>
-          </div>
-        )}
+        <p className="text-sm text-muted">Enter today's labourer count for each contractor and deduct tokens.</p>
       </div>
 
       {isLoading && <p className="text-sm text-muted">Loading…</p>}
 
-      {!isLoading && Object.keys(byContractor).length === 0 && (
-        <div className="card py-10 text-center text-muted">
-          No labour entries for {formatDate(date)}
-        </div>
+      {!isLoading && (!contractors || contractors.length === 0) && (
+        <div className="card py-10 text-center text-muted">No contractor accounts found.</div>
       )}
 
-      {/* One card per contractor */}
-      {Object.entries(byContractor).map(([accountId, items]) => (
-        <div key={accountId} className="card overflow-x-auto p-0">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-border">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {(contractors ?? []).map((c) => (
+          <div key={c.accountId} className="card space-y-4">
             <div>
-              <p className="font-semibold">{items[0].accountName}</p>
-              <p className="text-xs text-muted">
-                Token balance:{" "}
-                <span className="font-medium text-primary">{balanceOf(accountId)}</span>
+              <p className="font-semibold text-base">{c.name}</p>
+              <p className="text-sm text-muted mt-0.5">
+                Balance:{" "}
+                <span className={`font-bold ${c.balance <= 0 ? "text-danger" : "text-primary"}`}>
+                  {c.balance} tokens
+                </span>
               </p>
             </div>
-            <div className="flex gap-2 text-sm">
-              <span className="badge-warning">{items.filter((e) => e.status === "PENDING").length} pending</span>
-              <span className="badge-success">{items.filter((e) => e.status === "SERVED").length} served</span>
-            </div>
-          </div>
 
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Served At</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((e) => {
-                const locked = isLocked(e.servedAt);
-                return (
-                  <tr key={e.id}>
-                    <td className="text-muted">{e.entryNo}</td>
-                    <td className="font-medium">
-                      {e.labourName ?? <span className="text-muted">Labour {e.entryNo}</span>}
-                    </td>
-                    <td>
-                      {e.status === "SERVED"
-                        ? <span className="badge-success">Served</span>
-                        : <span className="badge-warning">Pending</span>}
-                    </td>
-                    <td>
-                      {e.servedAt
-                        ? <span className={locked ? "text-muted text-xs" : ""}>{formatDate(e.servedAt)}</span>
-                        : "—"}
-                    </td>
-                    <td>
-                      {e.status === "PENDING" && (
-                        <button
-                          className="btn-primary !px-3 !py-1 text-xs"
-                          disabled={serveMutation.isPending}
-                          onClick={() => serveMutation.mutate(e.id)}
-                        >
-                          Mark Served
-                        </button>
-                      )}
-                      {e.status === "SERVED" && locked && (
-                        <span className="text-xs text-muted">Locked</span>
-                      )}
-                      {e.status === "SERVED" && !locked && (
-                        <span className="text-xs text-muted">Served ✓</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ))}
+            <div className="flex gap-2">
+              <input
+                className="input flex-1"
+                type="number"
+                min={1}
+                placeholder="Labourers today"
+                value={deductQty[c.accountId] ?? ""}
+                onChange={(e) =>
+                  setDeductQty((prev) => ({ ...prev, [c.accountId]: e.target.value }))
+                }
+                onKeyDown={(e) => e.key === "Enter" && handleDeduct(c.accountId)}
+              />
+              <button
+                className="btn-primary"
+                disabled={deductMutation.isPending || c.balance <= 0}
+                onClick={() => handleDeduct(c.accountId)}
+              >
+                Deduct
+              </button>
+            </div>
+
+            {c.balance <= 0 && (
+              <p className="text-xs text-danger">No tokens remaining — top up required.</p>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

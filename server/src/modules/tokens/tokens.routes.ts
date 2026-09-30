@@ -72,7 +72,7 @@ tokensRouter.get(
 // ---------------------------------------------------------------------------
 tokensRouter.get(
   "/:accountId/balance",
-  requireRole(Role.ADMIN, Role.CANTEEN, Role.CONTRACTOR),
+  requireRole(Role.ADMIN, Role.CANTEEN),
   asyncHandler(async (req, res) => {
     await requireContractorAccount(req.params.accountId);
     const balance = await currentBalance(req.params.accountId);
@@ -85,7 +85,7 @@ tokensRouter.get(
 // ---------------------------------------------------------------------------
 tokensRouter.get(
   "/:accountId/history",
-  requireRole(Role.ADMIN, Role.CANTEEN, Role.CONTRACTOR),
+  requireRole(Role.ADMIN, Role.CANTEEN),
   asyncHandler(async (req, res) => {
     await requireContractorAccount(req.params.accountId);
 
