@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
+import { ExcelButton } from "../../components/ExcelButton";
 import { StoreStockRow } from "../../types";
 import { formatCurrency, formatQty, todayInput } from "../../lib/format";
 
@@ -20,7 +21,24 @@ export function StoreStock() {
           <h1 className="text-xl font-bold">Store Stock</h1>
           <p className="text-sm text-muted">Opening / Inward / Available / Issue / Balance — computed automatically from the ledger</p>
         </div>
-        <DateRangeFilter value={range} onChange={setRange} />
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangeFilter value={range} onChange={setRange} />
+          <ExcelButton
+            filename="store-stock"
+            rows={rows?.map((r) => ({
+              Product: r.productName,
+              Unit: r.unit,
+              "Opening Qty": r.openingQty,
+              "Inward Qty": r.inwardQty,
+              "Available Qty": r.availableQty,
+              "Avg Rate": r.avgRate,
+              "Issue Qty": r.issueQty,
+              "Balance Qty": r.balanceQty,
+              "Stock Value": r.stockValue,
+              "Low Stock": r.isLowStock ? "Yes" : "No",
+            }))}
+          />
+        </div>
       </div>
 
       <div className="card overflow-x-auto p-0">
