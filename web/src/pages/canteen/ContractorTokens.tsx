@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
+import { formatDate } from "../../lib/format";
 
 interface ContractorBalance {
   accountId: string;
@@ -9,13 +10,102 @@ interface ContractorBalance {
   balance: number;
 }
 
+interface TxnRow {
+  id: string;
+  txnType: string;
+  quantity: number;
+  balanceAfter: number;
+  note: string | null;
+  performedBy: string | null;
+  createdAt: string;
+}
+
 interface DeductState {
   [accountId: string]: string;
+}
+
+function txnLabel(type: string) {
+  if (type === "TOPUP") return <span className="badge-success">Top-up</span>;
+  if (type === "DEDUCT") return <span className="badge-warning">Deduct</span>;
+  return <span className="badge-muted">Reset</span>;
+}
+
+function ContractorHistory({ accountId }: { accountId: string }) {
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["token-history", accountId, month],
+    queryFn: async () =>
+      (await api.get<TxnRow[]>(`/tokens/${accountId}/history`, { params: { month } })).data,
+  });
+
+  return (
+    <div className="border-t border-border pt-3 space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide">Transaction History</p>
+        <input
+          className="input !py-0.5 !px-2 text-xs w-36"
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+        />
+      </div>
+
+      {isLoading && <p className="text-xs text-muted">Loading…</p>}
+
+      {!isLoading && (!data || data.length === 0) && (
+        <p className="text-xs text-muted">No transactions for this month.</p>
+      )}
+
+      {data && data.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-muted border-b border-border">
+                <th className="pb-1 pr-3">Date & Time</th>
+                <th className="pb-1 pr-3">Type</th>
+                <th className="pb-1 pr-3 text-right">Qty</th>
+                <th className="pb-1 pr-3 text-right">Balance After</th>
+                <th className="pb-1 pr-3">By</th>
+                <th className="pb-1">Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((t) => (
+                <tr key={t.id} className="border-b border-border last:border-0">
+                  <td className="py-1.5 pr-3 whitespace-nowrap text-muted">
+                    {new Date(t.createdAt).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="py-1.5 pr-3">{txnLabel(t.txnType)}</td>
+                  <td className="py-1.5 pr-3 text-right font-medium">
+                    {t.txnType === "TOPUP" ? `+${t.quantity}` : `${t.quantity}`}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right font-medium text-primary">{t.balanceAfter}</td>
+                  <td className="py-1.5 pr-3 whitespace-nowrap">{t.performedBy ?? "—"}</td>
+                  <td className="py-1.5 text-muted">{t.note ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ContractorTokens() {
   const queryClient = useQueryClient();
   const [deductQty, setDeductQty] = useState<DeductState>({});
+  const [openHistory, setOpenHistory] = useState<Set<string>>(new Set());
 
   const { data: contractors, isLoading } = useQuery({
     queryKey: ["token-balances"],
@@ -30,6 +120,7 @@ export function ContractorTokens() {
       toast.success(`Deducted — new balance: ${res.data.balance} tokens`);
       setDeductQty((prev) => ({ ...prev, [accountId]: "" }));
       queryClient.invalidateQueries({ queryKey: ["token-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["token-history", accountId] });
     },
     onError: (e) => toast.error(apiErrorMessage(e)),
   });
@@ -38,6 +129,14 @@ export function ContractorTokens() {
     const qty = parseInt(deductQty[accountId] ?? "", 10);
     if (!qty || qty <= 0) return toast.error("Enter a valid number of labourers");
     deductMutation.mutate({ accountId, quantity: qty });
+  };
+
+  const toggleHistory = (accountId: string) => {
+    setOpenHistory((prev) => {
+      const next = new Set(prev);
+      next.has(accountId) ? next.delete(accountId) : next.add(accountId);
+      return next;
+    });
   };
 
   return (
@@ -89,6 +188,17 @@ export function ContractorTokens() {
 
             {c.balance <= 0 && (
               <p className="text-xs text-danger">No tokens remaining — top up required.</p>
+            )}
+
+            <button
+              className="text-xs text-primary underline text-left"
+              onClick={() => toggleHistory(c.accountId)}
+            >
+              {openHistory.has(c.accountId) ? "Hide history" : "View history"}
+            </button>
+
+            {openHistory.has(c.accountId) && (
+              <ContractorHistory accountId={c.accountId} />
             )}
           </div>
         ))}
