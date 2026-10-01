@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api, apiErrorMessage } from "../../api/client";
 import { formatDate } from "../../lib/format";
+import { exportToExcel } from "../../lib/excel";
 
 interface ContractorBalance {
   accountId: string;
@@ -102,6 +103,36 @@ function ContractorHistory({ accountId }: { accountId: string }) {
   );
 }
 
+async function exportAllContractors(contractors: ContractorBalance[]) {
+  if (!contractors || contractors.length === 0) return toast.error("No contractors found");
+  toast.loading("Preparing export…", { id: "export" });
+  try {
+    const results = await Promise.all(
+      contractors.map(async (c) => {
+        const txns = (await api.get<TxnRow[]>(`/tokens/${c.accountId}/history`)).data;
+        return txns.map((t) => ({
+          Contractor: c.name,
+          "Date & Time": new Date(t.createdAt).toLocaleString("en-IN", {
+            day: "2-digit", month: "short", year: "numeric",
+            hour: "2-digit", minute: "2-digit",
+          }),
+          Type: t.txnType,
+          Quantity: t.quantity,
+          "Balance After": t.balanceAfter,
+          "Performed By": t.performedBy ?? "",
+          Note: t.note ?? "",
+        }));
+      })
+    );
+    const rows = results.flat();
+    if (rows.length === 0) return toast.error("No transactions to export", { id: "export" });
+    exportToExcel("contractor-tokens", rows);
+    toast.success("Exported!", { id: "export" });
+  } catch {
+    toast.error("Export failed", { id: "export" });
+  }
+}
+
 export function ContractorTokens() {
   const queryClient = useQueryClient();
   const [deductQty, setDeductQty] = useState<DeductState>({});
@@ -141,9 +172,17 @@ export function ContractorTokens() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Contractor Tokens</h1>
-        <p className="text-sm text-muted">Enter today's labourer count for each contractor and deduct tokens.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Contractor Tokens</h1>
+          <p className="text-sm text-muted">Enter today's labourer count for each contractor and deduct tokens.</p>
+        </div>
+        <button
+          className="btn-secondary !py-1.5 text-xs"
+          onClick={() => exportAllContractors(contractors ?? [])}
+        >
+          ⬇ Export Excel
+        </button>
       </div>
 
       {isLoading && <p className="text-sm text-muted">Loading…</p>}
